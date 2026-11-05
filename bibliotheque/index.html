@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RolePlay Cas d'usage</title>
+<title>AI Roleplay Cas d'usage</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -149,8 +149,8 @@ svg { display: block; flex: none; }
 .content { max-width: 1480px; margin: 0 auto; padding-block: 16px 64px; display: flex; flex-direction: column; gap: 28px; }
 .tagrow { display: flex; justify-content: flex-end; }
 .proto { background: var(--proto-bg); color: var(--proto-fg); border-radius: 999px; padding: 6px 16px; font-size: 14px; font-weight: 500; }
-.pills { display: flex; flex-wrap: wrap; gap: 12px; }
-.pill { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 9px 20px; font-size: 1rem; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font-size: 1rem; white-space: nowrap; }
 .pill:hover { border-color: var(--primary); }
 .pill[aria-pressed="true"] { background: var(--tint); border-color: var(--primary); color: var(--link); font-weight: 600; }
 
@@ -192,6 +192,9 @@ svg { display: block; flex: none; }
 .card h3 { font-size: 1.15rem; font-weight: 500; line-height: 1.3; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.6em; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { background: var(--line-soft); color: var(--muted); border-radius: 999px; padding: 4px 12px; font-size: 14px; }
+.lv::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: currentColor; opacity: .35; }
+.lv2::before { opacity: .65; }
+.lv3::before { opacity: 1; }
 .card-foot { display: flex; align-items: center; gap: 10px; padding: 16px 20px 18px; color: var(--muted); font-size: 14px; }
 .av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 13px; flex: none; }
 .av-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -236,6 +239,8 @@ svg { display: block; flex: none; }
   .rail { display: none; }
   .crumb { flex: 1 1 0; order: 0; }
   .lang { order: 1; height: 40px; }
+  .lang button { padding: 0 10px; min-width: 40px; }
+  .crumb b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .search { order: 2; flex: 1 1 100%; }
   .company { order: 3; flex: 1 1 100%; }
   .pills { margin-top: 0; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; }
@@ -283,7 +288,7 @@ svg { display: block; flex: none; }
           <span class="sr" id="t-comp-sr">Entreprise cliente</span>
           <input id="v-entreprise" type="text" placeholder="Entreprise cliente" autocomplete="off">
         </label>
-        <div class="lang" role="group" aria-label="Langue / Language"><button type="button" data-lang="fr" aria-pressed="true" lang="fr">FR</button><button type="button" data-lang="en" aria-pressed="false" lang="en">EN</button></div>
+        <div class="lang" role="group" aria-label="Langue / Language / Sprache"><button type="button" data-lang="fr" aria-pressed="true" lang="fr">FR</button><button type="button" data-lang="en" aria-pressed="false" lang="en">EN</button><button type="button" data-lang="de" aria-pressed="false" lang="de">DE</button></div>
       </div>
     </header>
 
@@ -310,14 +315,32 @@ svg { display: block; flex: none; }
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Fiche du cas" hidden></aside>
 
 <script>
-var SECT = { S: "Services", H: "Santé", I: "Industrie", R: "Retail", B: "Banque & finance", F: "Formation" };
+/* Secteur précis de chaque cas (affiché dans la fiche). */
+var SECT = { S: "Services", H: "Santé", I: "Industrie", R: "Retail", B: "Banque & assurance", F: "Formation",
+  T: "Tech & SaaS", C: "Centres de contact", L: "Luxe & beauté", O: "Hôtellerie & loisirs", M: "Transport & mobilité" };
+/* Univers = regroupement des secteurs, un par pastille et par rangée. */
+var UNIV = { S: "Services", H: "Santé", I: "Industrie & transport", M: "Industrie & transport",
+  R: "Commerce & hôtellerie", L: "Commerce & hôtellerie", O: "Commerce & hôtellerie",
+  B: "Banque & assurance", F: "Formation", T: "Tech & centres de contact", C: "Tech & centres de contact" };
+/* Familles = regroupement des thèmes, une par tuile. */
+var FAMILIES = [
+  { n: "Management & RH", t: ["Management", "RH & recrutement"] },
+  { n: "Relation client & vente", t: ["Relation client", "Vente & négociation"] },
+  { n: "Conformité & sécurité", t: ["Conformité & sécurité"] },
+  { n: "Communication & expertise", t: ["Communication interne", "Onboarding & expertise produit"] }
+];
 var SKILLS = {
   "Management": "Posture managériale, écoute active, cadre clair",
+  "RH & recrutement": "Neutralité, respect du cadre, questionnement précis",
   "Relation client": "Écoute, empathie, reformulation, gestion du désaccord",
+  "Vente & négociation": "Découverte, traitement des objections, conclusion",
   "Conformité & sécurité": "Respect des procédures, ton factuel, fermeté bienveillante",
-  "Communication interne": "Clarté du message, argumentation, adaptation à l'interlocuteur"
+  "Communication interne": "Clarté du message, argumentation, adaptation à l'interlocuteur",
+  "Onboarding & expertise produit": "Maîtrise de l'offre, clarté, réponse précise"
 };
+var LEVEL = ["", "Accessible", "Exigeant", "Difficile"];
 var STEM = "Génère une mise en situation orale où ";
+var STEM_W = "Génère une mise en situation écrite où ";
 /* [secteur, cas d'usage, titre, apprenant, situation, scénario, avatar] */
 var ROWS = [
   /* SERVICES */
@@ -510,8 +533,35 @@ var ROWS = [
     "Directeur financier, sceptique, qui demande des chiffres et l'impact business."],
   ["F", "Communication interne", "Convaincre un manager de libérer ses équipes", "un chargé de formation", "convaincre un manager de libérer ses collaborateurs pour suivre une formation",
     "Le manager invoque la charge de travail. Le chargé doit argumenter sur la valeur et proposer un calendrier.",
-    "Manager débordé, qui voit la formation comme une perte de temps."]
+    "Manager débordé, qui voit la formation comme une perte de temps."],
+  /* NOUVEAUX CAS (61-82) */
+  ["T","Vente & négociation","Lever l'objection « on a déjà un outil »","un commercial grands comptes","lever l'objection d'un prospect qui affirme être déjà équipé d'un outil concurrent","Le prospect a accepté un premier échange mais estime ne pas avoir besoin de changer. Le commercial doit explorer les limites de l'outil actuel sans le dénigrer et obtenir un rendez-vous suivant.","Directeur des systèmes d'information sceptique, pressé, qui rappelle le coût d'un changement d'outil."],
+  ["B","Vente & négociation","Défendre la valeur d'un contrat face au prix","un conseiller en assurance","défendre la valeur d'un contrat face à un client qui ne parle que du prix d'une offre concurrente","Le client a reçu une offre moins chère et envisage de partir. Le conseiller doit comparer les garanties, faire ressortir la valeur et proposer un ajustement réaliste.","Client méfiant, centré sur le prix, qui brandit l'offre concurrente à chaque argument."],
+  ["H","Vente & négociation","Convaincre un médecin prescripteur sceptique","un délégué commercial","convaincre un médecin prescripteur sceptique d'adopter un nouveau service de résultats rapides","Le médecin est satisfait de ses habitudes et manque de temps. Le délégué doit partir de ses contraintes de cabinet, présenter le bénéfice patient et obtenir un essai.","Médecin généraliste pressé, sceptique, qui ne veut pas d'une démarche de plus pour son secrétariat."],
+  ["R","Vente & négociation","Proposer un service additionnel sans forcer","un vendeur","proposer un service additionnel, comme l'installation ou l'extension de garantie, à un client qui vient de choisir son produit","Le client a fait son choix et veut passer en caisse. Le vendeur doit présenter le service au bon moment, en lien avec l'usage du client, et accepter un refus.","Client pressé, méfiant envers les « options », qui pense qu'on cherche à lui vendre quelque chose d'inutile."],
+  ["I","Vente & négociation","Annoncer une hausse de prix à un acheteur","un ingénieur d'affaires","annoncer une hausse de tarif de 6 % à l'acheteur d'un client grand compte","La hausse est liée au coût des matières premières. L'ingénieur d'affaires doit l'annoncer clairement, la justifier et négocier des contreparties sans céder sur l'essentiel.","Acheteur grand compte, ferme, qui menace de lancer un appel d'offres."],
+  ["S","Vente & négociation","Convaincre une PME de confier ses recrutements","un commercial en agence d'emploi","convaincre le dirigeant d'une PME de confier ses recrutements de personnel temporaire à l'agence","Le dirigeant recrute lui-même par habitude et trouve l'intérim cher. Le commercial doit comprendre ses difficultés de recrutement et chiffrer ce qu'elles lui coûtent.","Dirigeant de PME méfiant, qui a eu une mauvaise expérience et juge les agences trop chères."],
+  ["O","Vente & négociation","Proposer une montée en gamme à l'arrivée","un réceptionniste","proposer une chambre de catégorie supérieure à un client au moment de son enregistrement","Le client arrive fatigué après un long trajet. Le réceptionniste doit l'accueillir, repérer l'occasion et présenter l'offre sans insistance.","Client fatigué, peu disponible, qui veut seulement sa clé et monter dans sa chambre."],
+  ["T","Relation client","Client qui menace de ne pas renouveler","un responsable du succès client","mener un appel avec un client qui menace de ne pas renouveler son abonnement faute d'adoption","Le client estime que l'outil est peu utilisé par ses équipes. Le responsable doit comprendre les causes, reconnaître sa part et proposer un plan d'adoption concret.","Sponsor côté client déçu, sous pression de sa direction, qui doit justifier la dépense."],
+  ["T","Onboarding & expertise produit","Répondre par écrit à un client bloqué par un bug","un agent de support","répondre par écrit à un client grand compte bloqué par un bug, sans divulguer d'information interne","Le bug est connu et un correctif est en cours. L'agent doit diagnostiquer, proposer un contournement et donner de la visibilité sans partager les échanges internes.","Client grand compte, agacé, qui écrit des messages courts et exige une date de correction."],
+  ["C","Relation client","Client qui conteste une hausse d'abonnement","un conseiller clientèle","répondre à un client qui appelle pour contester la hausse de son abonnement annoncée par e-mail","Le client craint des frais cachés et une coupure de service. Le conseiller doit expliquer la hausse, rassurer et proposer une formule adaptée, dans la limite de ce qu'il peut accorder.","Client en colère au début de l'appel, qui se calme s'il se sent écouté et reçoit une explication claire."],
+  ["C","Relation client","Retenir un client qui veut résilier","un conseiller fidélisation","traiter la demande de résiliation d'un client en cherchant à le retenir sans forcer","Le client a reçu une offre concurrente et appelle pour résilier. Le conseiller doit comprendre la raison réelle, présenter une alternative et respecter sa décision si elle est maintenue.","Client décidé, poli mais ferme, qui a déjà comparé les offres."],
+  ["C","Relation client","Client qui exige de parler à un responsable","un conseiller clientèle","gérer un client qui exige de parler à un responsable après plusieurs appels sans solution","Le client a déjà appelé trois fois. Le conseiller doit reprendre le dossier, montrer qu'il peut agir et ne transférer l'appel que si c'est nécessaire.","Client excédé, qui répète « passez-moi votre responsable » et interrompt."],
+  ["L","Vente & négociation","Relancer une cliente fidèle","un conseiller de vente","appeler une cliente fidèle pour lui présenter une nouvelle collection et l'inviter en boutique","La cliente achète régulièrement mais n'est pas venue depuis plusieurs mois. Le conseiller doit raviver la relation, personnaliser la proposition et obtenir une visite.","Cliente fidèle, courtoise mais peu disponible, qui n'aime pas se sentir sollicitée."],
+  ["L","Relation client","Produit haut de gamme abîmé","un conseiller de vente","accueillir une cliente qui rapporte un produit haut de gamme abîmé après quelques semaines","La cliente est déçue au regard du prix payé. Le conseiller doit l'écouter, prendre en charge la situation et préserver l'image de la maison, dans le respect des règles de garantie.","Cliente déçue, élégante et froide, qui attend un traitement à la hauteur du prix payé."],
+  ["M","Relation client","Voyageur en colère après une annulation","un agent d'accueil","accueillir un voyageur en colère dont le trajet vient d'être annulé","Le voyageur risque de manquer un rendez-vous important. L'agent doit absorber sa colère, expliquer la situation et proposer les solutions de réacheminement disponibles.","Voyageur furieux, pressé, qui accuse la compagnie de mépris envers ses clients."],
+  ["M","Conformité & sécurité","Collègue qui contourne une règle de sécurité","un chef d'équipe","reprendre un agent qui a contourné une règle de sécurité pour gagner du temps","L'agent a sauté une vérification obligatoire pour tenir l'horaire. Le chef d'équipe doit rappeler la règle, comprendre la pression ressentie et obtenir un engagement.","Agent expérimenté, sur la défensive, qui invoque les retards et la pression des horaires."],
+  ["B","RH & recrutement","Mener un entretien de recrutement structuré","un manager","mener un entretien de recrutement structuré avec un candidat aux réponses vagues","Le manager doit poser des questions comportementales, creuser les exemples et évaluer le candidat sur des critères définis, sans se laisser séduire par son aisance.","Candidat à l'aise à l'oral, qui répond par généralités et évite les exemples précis."],
+  ["I","RH & recrutement","Conduire un entretien préalable à une sanction","un responsable des ressources humaines","conduire un entretien préalable à une sanction disciplinaire avec un salarié qui conteste les faits","Le responsable doit exposer les faits de façon neutre, écouter les explications du salarié et respecter la procédure, sans annoncer de décision pendant l'entretien.","Salarié contestataire, accompagné, qui conteste les faits et met en cause son encadrement."],
+  ["T","RH & recrutement","Refuser une demande d'augmentation","un manager","refuser une demande d'augmentation à un bon collaborateur sans le démotiver","Le budget ne permet pas d'augmentation cette année. Le manager doit annoncer le refus, reconnaître la contribution et construire un plan de progression crédible.","Collaborateur performant, déçu, qui laisse entendre qu'il regarde d'autres offres."],
+  ["S","RH & recrutement","Annoncer la fin anticipée d'une mission","un chargé de recrutement","annoncer à un intérimaire la fin anticipée de sa mission chez une entreprise cliente","L'entreprise cliente réduit son activité. Le chargé doit annoncer la nouvelle clairement, expliquer les modalités et proposer une suite.","Intérimaire inquiet, qui comptait sur cette mission et craint de ne plus avoir de revenus."],
+  ["B","Onboarding & expertise produit","Présenter l'offre en deux minutes","un nouveau commercial","présenter l'offre en deux minutes à un prospect pressé qui l'interrompt","En fin de parcours d'intégration, le nouveau commercial doit présenter la proposition de valeur, s'adapter aux interruptions et obtenir un rendez-vous de découverte.","Prospect pressé, qui coupe la parole et demande « concrètement, qu'est-ce que ça m'apporte ? »."],
+  ["C","Management","Rassurer un collaborateur inquiet face à l'IA","un manager","rassurer un collaborateur qui craint que l'arrivée d'un outil d'intelligence artificielle menace son poste","L'équipe va utiliser un assistant d'IA. Le manager doit écouter les craintes, expliquer ce qui change vraiment et associer le collaborateur au déploiement.","Collaborateur expérimenté, inquiet, qui pense que l'IA va le remplacer."]
 ];
+/* Niveau de chaque cas, même ordre que ROWS : 1 accessible, 2 exigeant, 3 difficile. */
+var LEVELS = [2,2,1,3,2,2,1,2,2,2,3,2,1,2,3,2,2,2,1,1,2,3,2,3,2,3,3,2,1,2,3,2,1,2,1,3,3,2,1,2,2,1,3,3,3,3,2,1,3,1,2,2,3,3,2,2,2,2,3,2,2,3,2,1,3,2,1,3,2,2,2,3,1,2,3,2,2,3,2,2,2,1];
+/* Cas à jouer à l'écrit (les autres sont oraux). */
+var WRITTEN = [69];
 /* 3 phrases par cas, dans l'ordre de la scène : ouvrir, explorer, conclure. Même ordre que ROWS. */
 var PHRASES = [
   /* SERVICES */
@@ -584,7 +634,30 @@ var PHRASES = [
   ["Je voulais te rappeler les pièces à fournir avant l'audit : émargements et évaluations.", "Qu'est-ce qui te complique cette tâche administrative ?", "Peux-tu m'envoyer les documents manquants avant jeudi ? Je te propose un modèle plus simple."],
   ["Je vous confirme la réception de votre demande de suppression de vos données personnelles.", "Voici ce que nous supprimons, et ce que la loi nous oblige à conserver, et pendant combien de temps.", "Vous recevrez une confirmation écrite sous un mois."],
   ["Je vous présente le bilan du dispositif : [x] % de complétion et [y] % de baisse des erreurs.", "Le retour sur investissement tient à trois points : productivité, rétention et conformité.", "Je demande un budget de [x] pour étendre le dispositif à deux nouveaux services."],
-  ["Je sais que votre charge est élevée, et je ne viens pas vous retirer du temps pour rien.", "Cette formation permet à vos équipes de gagner environ [x] heures par semaine ensuite.", "Je propose deux demi-journées, hors période de pic. Quelles dates vous arrangent ?"]
+  ["Je sais que votre charge est élevée, et je ne viens pas vous retirer du temps pour rien.", "Cette formation permet à vos équipes de gagner environ [x] heures par semaine ensuite.", "Je propose deux demi-journées, hors période de pic. Quelles dates vous arrangent ?"],
+  /* NOUVEAUX CAS (61-82) */
+  ["Merci pour ces quelques minutes. Je ne viens pas vous demander de tout changer, mais comprendre comment vous travaillez aujourd'hui.","Avec votre outil actuel, qu'est-ce qui prend encore trop de temps à vos équipes ?","Je vous propose un atelier de 45 minutes avec vos équipes pour comparer sur un cas réel. Mardi ou jeudi ?"],
+  ["Je comprends que le prix compte, et je veux qu'on compare les deux offres à garanties égales.","Si demain vous avez un sinistre, qu'est-ce qui serait le plus important pour vous ?","Je peux ajuster la franchise pour baisser la cotisation, tout en gardant les garanties essentielles. On regarde ensemble ?"],
+  ["Docteur, je sais que votre temps est compté, je serai bref.","Aujourd'hui, combien de temps attendez-vous un résultat urgent, et qu'est-ce que ça change pour vos patients ?","Je vous propose un essai d'un mois, sans démarche supplémentaire pour votre secrétariat. On fait le point ensemble à la fin ?"],
+  ["Bon choix, c'est le modèle que je recommande pour l'usage que vous m'avez décrit.","Vous avez prévu de l'installer vous-même, ou vous préférez qu'il soit prêt à l'emploi ?","Je vous laisse la fiche du service : si vous changez d'avis, vous pouvez l'ajouter dans les 30 jours."],
+  ["Je préfère vous l'annoncer de vive voix : nos tarifs évoluent de 6 % au 1er janvier.","Cette hausse reflète celle de nos matières premières, je peux vous montrer le détail. Qu'est-ce qui vous pose le plus de difficulté ?","Je peux étaler la hausse sur deux trimestres si vous vous engagez sur les volumes de l'année. Est-ce une base de discussion ?"],
+  ["Je ne suis pas là pour vous vendre de l'intérim à tout prix, mais pour comprendre vos besoins en recrutement.","Lors de votre dernier pic d'activité, combien de temps vous a-t-il fallu pour trouver du renfort ?","Je vous propose un premier poste en test, avec un point de satisfaction au bout d'une semaine."],
+  ["Bienvenue, et merci pour votre patience après ce long trajet.","Vous êtes ici pour le travail ou pour vous reposer quelques jours ?","J'ai une chambre avec terrasse disponible ce soir pour un petit supplément. Sinon, voici votre clé, je vous souhaite une excellente soirée."],
+  ["Merci de me dire les choses franchement, c'est ce qui va nous permettre d'avancer.","Selon vous, qu'est-ce qui freine vos équipes au quotidien ?","Je vous propose un plan sur 60 jours, avec deux ateliers et un point mensuel de vos indicateurs. On le valide ensemble vendredi ?"],
+  ["Bonjour, merci pour votre message et vos captures, elles m'aident à reproduire le problème.","Pour confirmer le diagnostic : l'erreur apparaît-elle pour tous vos utilisateurs ou seulement pour certains profils ?","Le problème est identifié et un correctif est en cours. En attendant, voici un contournement, et je reviens vers vous jeudi avec un point d'étape."],
+  ["Je comprends votre surprise en recevant ce message, je vais tout vous expliquer.","Pour vous proposer la bonne formule, comment utilisez-vous votre abonnement au quotidien ?","Je vous propose de passer sur cette formule, qui garde vos services pour un montant proche de l'actuel. Je vous envoie le récapitulatif par e-mail."],
+  ["Je prends bien votre demande. Avant de la traiter, puis-je vous demander ce qui motive votre départ ?","Si je comprends bien, c'est surtout le prix des prochains mois qui vous pose problème ?","Je peux vous proposer cette offre pendant 12 mois. Si vous préférez résilier, je lance la démarche tout de suite."],
+  ["Je vois que c'est votre troisième appel, et je comprends que vous soyez à bout.","Je reprends votre dossier : laissez-moi vérifier ce qui a bloqué jusqu'ici.","Voici ce que je fais maintenant, et je vous rappelle moi-même demain avant midi. Si ce n'est pas réglé, je transmets à mon responsable."],
+  ["Bonjour, je vous appelle parce que j'ai pensé à vous en découvrant la nouvelle collection.","La dernière fois, vous cherchiez une pièce pour les soirées. Est-ce toujours d'actualité ?","Je peux vous mettre de côté deux modèles à votre taille. Seriez-vous disponible samedi matin ?"],
+  ["Je suis sincèrement désolé, ce n'est pas l'expérience que nous voulons vous offrir.","Pouvez-vous me montrer ce qui s'est passé, et depuis quand vous l'avez remarqué ?","Je confie la pièce à notre atelier et je vous appelle moi-même dès son retour, sous dix jours."],
+  ["Je comprends votre colère, et je vais tout faire pour trouver une solution rapidement.","À quelle heure devez-vous être arrivé, et à quel endroit ?","Je vous réserve une place sur le départ de 14 h 10, et voici un bon pour votre repas en attendant."],
+  ["Je dois te parler de la vérification sautée ce matin, parce que c'est un sujet de sécurité.","Qu'est-ce qui t'a poussé à la sauter : l'horaire, la charge, autre chose ?","La règle ne bouge pas. Si l'horaire est intenable, tu me le signales et je le remonte. On est d'accord ?"],
+  ["Merci d'être venu. Nous allons parler de vos expériences concrètes, et je vous laisserai du temps pour vos questions.","Racontez-moi une situation précise où un client était mécontent : qu'avez-vous fait, vous personnellement ?","Merci. Nous revenons vers vous d'ici une semaine, après les autres entretiens."],
+  ["Cet entretien a pour objet de vous exposer les faits qui vous sont reprochés et d'entendre vos explications.","Voici les faits constatés le 12. Quelle est votre version ?","J'ai bien noté vos explications. Aucune décision n'est prise aujourd'hui : vous recevrez une réponse écrite dans les délais prévus."],
+  ["Je veux être transparent avec toi : je ne peux pas accorder d'augmentation cette année.","Ta contribution compte. Qu'est-ce qui est le plus important pour toi dans les deux ans à venir ?","Je te propose un plan avec deux objectifs et une révision en juin. Je m'engage à défendre ton dossier."],
+  ["J'ai une nouvelle difficile à t'annoncer, et je préfère le faire directement.","Je sais que tu comptais sur cette mission. Qu'est-ce qui t'inquiète le plus ?","Ta mission se termine vendredi. J'ai deux postes à te proposer dès lundi, on les regarde ensemble ?"],
+  ["Je vous prends deux minutes, et je vous dirai concrètement ce que ça change pour vous.","En une phrase : nous aidons les entreprises comme la vôtre à réduire leurs frais de [x] %. Quel est votre principal enjeu aujourd'hui ?","Je vous propose 30 minutes jeudi pour vous montrer un cas proche du vôtre."],
+  ["Je sais que l'annonce de cet outil soulève des questions, et je veux en parler franchement avec toi.","Qu'est-ce qui t'inquiète le plus, concrètement ?","L'outil prend en charge les tâches répétitives, ton expertise reste centrale. Je te propose de faire partie du groupe pilote."]
 ];
 
 /* ---- English version ---- */
@@ -648,7 +721,30 @@ var ROWS_EN = [
 /*57*/["Remind traceability obligations","a training quality manager","remind a trainer of their traceability obligations on attendance sheets and assessments","Records are missing ahead of an audit. The manager must restate the rules and obtain quick regularization.","Freelance trainer, who finds these administrative obligations excessive."],
 /*58*/["Personal data deletion request","a training coordinator","respond to a learner who asks for their personal data to be deleted","The coordinator must apply the data protection procedure and explain what can be deleted or kept.","Learner aware of their rights, who demands a precise answer and timelines."],
 /*59*/["Defend the training budget before leadership","a head of learning","present to leadership the results of a training program and defend its budget","Leadership doubts the return on investment. The head of learning must present results and argue the case.","Chief financial officer, skeptical, who asks for figures and business impact."],
-/*60*/["Convince a manager to release their team","a training coordinator","convince a manager to release their employees to attend a training","The manager cites workload. The coordinator must argue the value and propose a schedule.","Overloaded manager, who sees training as a waste of time."]
+/*60*/["Convince a manager to release their team","a training coordinator","convince a manager to release their employees to attend a training","The manager cites workload. The coordinator must argue the value and propose a schedule.","Overloaded manager, who sees training as a waste of time."],
+  /* New cases (61-82) */
+  /*61*/["Handle the \"we already have a tool\" objection","an enterprise account executive","handle the objection of a prospect who says they already use a competing tool","The prospect agreed to a first call but sees no need to switch. The account executive must explore the limits of the current tool without disparaging it and secure a follow-up meeting.","Skeptical, hurried IT director, who points out the cost of switching tools."],
+  /*62*/["Defend a policy's value against price","an insurance advisor","defend the value of a policy to a customer who only talks about the price of a competing offer","The customer received a cheaper quote and is thinking of leaving. The advisor must compare coverage, bring out the value and propose a realistic adjustment.","Wary, price-focused customer, who waves the competing offer at every argument."],
+  /*63*/["Convince a skeptical prescribing doctor","a medical sales representative","convince a skeptical prescribing doctor to adopt a new fast-results service","The doctor is happy with their habits and short on time. The representative must start from the practice's constraints, present the patient benefit and secure a trial.","Hurried, skeptical general practitioner, who doesn't want one more task for their front desk."],
+  /*64*/["Offer an add-on service without pushing","a sales associate","offer an add-on service, such as installation or an extended warranty, to a customer who has just chosen their product","The customer has made their choice and wants to check out. The associate must bring up the service at the right moment, linked to the customer's use, and accept a no.","Hurried customer, wary of \"extras\", who thinks they are being sold something useless."],
+  /*65*/["Announce a price increase to a buyer","a sales engineer","announce a 6% price increase to the buyer of a key account","The increase is driven by raw material costs. The sales engineer must announce it clearly, justify it and negotiate trade-offs without giving up the essentials.","Firm key-account buyer, who threatens to put the contract out to tender."],
+  /*66*/["Convince a small business to outsource hiring","a staffing agency sales rep","convince the owner of a small business to entrust their temporary staffing to the agency","The owner hires on their own out of habit and finds temp staffing expensive. The rep must understand their hiring difficulties and put a figure on what they cost.","Wary small-business owner, who had a bad experience and finds agencies too expensive."],
+  /*67*/["Offer an upgrade at check-in","a front desk agent","offer a higher-category room to a guest at check-in","The guest arrives tired after a long journey. The agent must welcome them, spot the opportunity and present the offer without insisting.","Tired, distracted guest, who just wants their key and to go up to their room."],
+  /*68*/["Customer threatening not to renew","a customer success manager","hold a call with a customer threatening not to renew their subscription due to low adoption","The customer feels their teams barely use the tool. The manager must understand the causes, own their share and propose a concrete adoption plan.","Disappointed customer sponsor, under pressure from leadership, who must justify the spend."],
+  /*69*/["Reply in writing to a customer blocked by a bug","a support agent","reply in writing to a key-account customer blocked by a bug, without disclosing internal information","The bug is known and a fix is underway. The agent must diagnose, offer a workaround and give visibility without sharing internal discussions.","Annoyed key-account customer, who writes short messages and demands a fix date."],
+  /*70*/["Customer disputing a subscription increase","a customer service advisor","respond to a customer calling to dispute the subscription increase announced by email","The customer fears hidden fees and a service cut. The advisor must explain the increase, reassure and propose a suitable plan, within the limits of what they can grant.","Customer angry at the start of the call, who calms down if they feel heard and get a clear explanation."],
+  /*71*/["Retain a customer who wants to cancel","a retention advisor","handle a customer's cancellation request while trying to retain them without pushing","The customer received a competing offer and is calling to cancel. The advisor must understand the real reason, present an alternative and respect the decision if it stands.","Decided customer, polite but firm, who has already compared offers."],
+  /*72*/["Customer demanding to speak to a manager","a customer service advisor","handle a customer who demands to speak to a manager after several calls without a solution","The customer has already called three times. The advisor must take over the case, show they can act and only transfer the call if needed.","Exasperated customer, who keeps repeating \"put me through to your manager\" and interrupts."],
+  /*73*/["Reach out to a loyal client","a client advisor","call a loyal client to present a new collection and invite her to the boutique","The client buys regularly but hasn't visited in several months. The advisor must rekindle the relationship, personalize the offer and secure a visit.","Loyal client, courteous but busy, who dislikes feeling solicited."],
+  /*74*/["Damaged high-end product","a client advisor","welcome a client returning a high-end product damaged after a few weeks","The client is disappointed given the price paid. The advisor must listen, take charge of the situation and protect the house's image, within the warranty rules.","Disappointed client, elegant and cold, who expects treatment worthy of the price paid."],
+  /*75*/["Angry traveler after a cancellation","a customer service agent","assist an angry traveler whose trip has just been canceled","The traveler may miss an important appointment. The agent must absorb the anger, explain the situation and offer the available rebooking options.","Furious, hurried traveler, who accuses the company of contempt for its customers."],
+  /*76*/["Colleague bypassing a safety rule","a team leader","address an agent who bypassed a safety rule to save time","The agent skipped a mandatory check to stay on schedule. The team leader must restate the rule, understand the pressure felt and secure a commitment.","Experienced, defensive agent, who cites delays and schedule pressure."],
+  /*77*/["Run a structured job interview","a manager","run a structured job interview with a candidate who gives vague answers","The manager must ask behavioral questions, dig into examples and assess the candidate against defined criteria, without being swayed by their ease.","Articulate candidate, who answers in generalities and avoids specific examples."],
+  /*78*/["Hold a pre-disciplinary meeting","an HR manager","hold a pre-disciplinary meeting with an employee who disputes the facts","The HR manager must set out the facts neutrally, listen to the employee's explanations and follow the procedure, without announcing any decision during the meeting.","Combative employee, accompanied by a representative, who disputes the facts and blames their supervisor."],
+  /*79*/["Turn down a raise request","a manager","turn down a raise request from a strong performer without demotivating them","The budget doesn't allow a raise this year. The manager must announce the refusal, recognize the contribution and build a credible growth plan.","High-performing, disappointed employee, who hints they are looking at other offers."],
+  /*80*/["Announce the early end of an assignment","a recruitment consultant","tell a temporary worker that their assignment at a client company is ending early","The client company is scaling back. The consultant must announce the news clearly, explain the terms and offer a next step.","Worried temporary worker, who was counting on this assignment and fears losing income."],
+  /*81*/["Pitch the offer in two minutes","a new sales rep","pitch the offer in two minutes to a hurried prospect who interrupts","At the end of onboarding, the new rep must present the value proposition, adapt to interruptions and secure a discovery meeting.","Hurried prospect, who interrupts and asks \"concretely, what's in it for me?\"."],
+  /*82*/["Reassure an employee worried about AI","a manager","reassure an employee who fears that a new artificial intelligence tool threatens their job","The team is about to use an AI assistant. The manager must listen to the fears, explain what really changes and involve the employee in the rollout.","Experienced, worried employee, who thinks AI will replace them."]
 ];
 var PHRASES_EN = [
 ["Thanks for taking the time. I wanted to talk to you about your lateness over the past few weeks, because it's starting to weigh on the team.","What's going on on your side for this to happen so often?","Here's what we agree on: from Monday you arrive by 9 a.m., and we check in again in two weeks. Does that work for you?"],
@@ -710,86 +806,328 @@ var PHRASES_EN = [
 ["I wanted to remind you of the documents to provide before the audit: attendance sheets and assessments.","What makes this administrative task complicated for you?","Can you send me the missing documents before Thursday? I'll offer you a simpler template."],
 ["I confirm receipt of your request to delete your personal data.","Here is what we delete, and what the law requires us to keep, and for how long.","You will receive written confirmation within a month."],
 ["I'm presenting the program's results: [x]% completion and [y]% fewer errors.","The return on investment rests on three points: productivity, retention and compliance.","I'm requesting a budget of [x] to extend the program to two new departments."],
-["I know your workload is high, and I'm not here to take your time for nothing.","This training lets your teams save about [x] hours per week afterwards.","I propose two half-days, outside the peak period. Which dates work for you?"]
+["I know your workload is high, and I'm not here to take your time for nothing.","This training lets your teams save about [x] hours per week afterwards.","I propose two half-days, outside the peak period. Which dates work for you?"],
+  /* New cases (61-82) */
+  ["Thanks for these few minutes. I'm not here to ask you to change everything, but to understand how you work today.","With your current tool, what still takes your teams too much time?","I suggest a 45-minute workshop with your teams to compare on a real case. Tuesday or Thursday?"],
+  ["I understand price matters, and I want us to compare both offers on equal coverage.","If you had a claim tomorrow, what would matter most to you?","I can adjust the deductible to lower the premium while keeping the essential coverage. Shall we look at it together?"],
+  ["Doctor, I know your time is precious, I'll be brief.","Today, how long do you wait for an urgent result, and what does that change for your patients?","I suggest a one-month trial, with no extra work for your front desk. Shall we review it together at the end?"],
+  ["Good choice, it's the model I recommend for the use you described.","Are you planning to set it up yourself, or would you rather have it ready to use?","Here's the service sheet: if you change your mind, you can add it within 30 days."],
+  ["I'd rather tell you in person: our prices go up 6% on January 1st.","This increase mirrors our raw material costs, I can show you the breakdown. What is hardest for you?","I can phase the increase over two quarters if you commit to the year's volumes. Is that a basis for discussion?"],
+  ["I'm not here to sell you temp staffing at any cost, but to understand your hiring needs.","During your last peak in activity, how long did it take you to find extra hands?","I suggest a first position as a trial, with a satisfaction check after one week."],
+  ["Welcome, and thank you for your patience after that long journey.","Are you here for work, or to rest for a few days?","I have a room with a terrace available tonight for a small supplement. Otherwise, here's your key, have a wonderful evening."],
+  ["Thank you for being frank, that's what will let us move forward.","In your view, what holds your teams back day to day?","I suggest a 60-day plan, with two workshops and a monthly review of your metrics. Shall we sign it off together on Friday?"],
+  ["Hello, thank you for your message and screenshots, they help me reproduce the issue.","To confirm the diagnosis: does the error appear for all your users or only for some profiles?","The issue is identified and a fix is underway. In the meantime, here is a workaround, and I'll get back to you Thursday with an update."],
+  ["I understand your surprise at that message, I'll explain everything.","To suggest the right plan, how do you use your subscription day to day?","I suggest switching to this plan, which keeps your services for an amount close to today's. I'll email you the summary."],
+  ["I've noted your request. Before I process it, may I ask what's behind your decision?","If I understand correctly, it's mainly the price over the coming months that's the issue?","I can offer you this deal for 12 months. If you'd still rather cancel, I'll start the process right away."],
+  ["I see this is your third call, and I understand you've had enough.","I'm taking over your case: let me check what has been blocking until now.","Here's what I'm doing now, and I'll call you back myself tomorrow before noon. If it isn't solved, I'll pass it to my manager."],
+  ["Hello, I'm calling because I thought of you when I discovered the new collection.","Last time, you were looking for an evening piece. Is that still on your mind?","I can set aside two pieces in your size. Would you be available Saturday morning?"],
+  ["I'm truly sorry, this is not the experience we want to offer you.","Could you show me what happened, and since when you've noticed it?","I'm sending the piece to our workshop and will call you myself as soon as it's back, within ten days."],
+  ["I understand your anger, and I'll do everything to find a solution quickly.","What time do you need to arrive, and where?","I'm booking you a seat on the 2:10 p.m. departure, and here's a meal voucher while you wait."],
+  ["I need to talk to you about the check you skipped this morning, because it's a safety matter.","What made you skip it: the schedule, the workload, something else?","The rule doesn't change. If the schedule is unworkable, you tell me and I'll escalate it. Agreed?"],
+  ["Thanks for coming. We'll talk about your concrete experience, and I'll leave time for your questions.","Tell me about a specific situation where a customer was unhappy: what did you, personally, do?","Thank you. We'll get back to you within a week, after the other interviews."],
+  ["The purpose of this meeting is to set out the facts you are accused of and to hear your explanations.","Here are the facts recorded on the 12th. What is your version?","I've noted your explanations. No decision is made today: you will receive a written answer within the required time."],
+  ["I want to be transparent with you: I can't grant a raise this year.","Your contribution matters. What is most important to you over the next two years?","I suggest a plan with two goals and a review in June. I commit to championing your case."],
+  ["I have difficult news to share, and I'd rather tell you directly.","I know you were counting on this assignment. What worries you most?","Your assignment ends Friday. I have two positions to offer you from Monday, shall we look at them together?"],
+  ["I'll take two minutes, and tell you concretely what it changes for you.","In one sentence: we help companies like yours cut their [x] costs by [y]%. What is your main challenge today?","I suggest 30 minutes on Thursday to show you a case close to yours."],
+  ["I know the announcement of this tool raises questions, and I want to talk about it openly with you.","What worries you most, concretely?","The tool takes over repetitive tasks, your expertise stays central. I'd like you to join the pilot group."]
 ];
 
-var SECT_EN = { "Services": "Services", "Santé": "Healthcare", "Industrie": "Manufacturing", "Retail": "Retail", "Banque & finance": "Banking & finance", "Formation": "Learning & training" };
-var TYPE_EN = { "Management": "Management", "Relation client": "Customer relations", "Conformité & sécurité": "Compliance & safety", "Communication interne": "Internal communication" };
+/* ---- Deutsche Fassung ---- */
+var ROWS_DE = [
+/*1*/["Wiederholte Verspätungen ansprechen","eine Teamleitung","ein Klärungsgespräch mit einem Mitarbeiter führen, dessen Verspätungen sich seit einem Monat wiederholen","Die Führungskraft muss einen klaren Rahmen setzen, ohne bloßzustellen, verstehen, woran es hakt, und eine konkrete Zusage erhalten.","Mitarbeiter in der Defensive, der zunächst abwiegelt und dann erklärt, was ihn am pünktlichen Erscheinen hindert."],
+/*2*/["Eine Umstrukturierung ankündigen","eine Führungskraft","dem Team eine Umstrukturierung ankündigen, die die Zuständigkeiten aller verändert","Die Ankündigung löst Sorgen und Fragen aus. Die Führungskraft muss klar bleiben und ehrlich sagen, was sie weiß und was nicht.","Besorgter Mitarbeiter, der direkte Fragen zu seiner Stelle und seiner Arbeitslast stellt."],
+/*3*/["An einen zweifelnden Junior delegieren","eine Führungskraft","eine wichtige Aufgabe an einen jungen Mitarbeiter delegieren, der an seinen Fähigkeiten zweifelt","Die Führungskraft muss beruhigen, den Handlungsspielraum klären und Zwischenstände festlegen, ohne die Arbeit selbst zu übernehmen.","Junger Mitarbeiter, motiviert, aber zögerlich, der Bestätigung sucht."],
+/*4*/["Kunde verärgert über eine verspätete Lieferung","eine Projektleitung","auf einen Kunden reagieren, der über ein verspätetes Arbeitsergebnis verärgert ist, und Vertrauen zurückgewinnen","Der Kunde ist verärgert und droht mit Eskalation. Die Projektleitung muss den Ärger auffangen, erklären und einen Plan vorschlagen.","Anspruchsvoller, gereizter Kunde, der so lange unterbricht, bis er sich gehört fühlt."],
+/*5*/["Einen unklaren Kundenbedarf präzisieren","eine Beraterin","den Bedarf eines Kunden erfassen, der seine Erwartungen unklar formuliert","Der Kunde weiß, was nicht funktioniert, aber nicht, was er will. Die Beraterin muss nachfragen und umformulieren, um Klarheit zu schaffen.","Wohlmeinender Kunde, der im Gespräch seine Meinung ändert und Bedarf mit Lösungen vermischt."],
+/*6*/["Eine Anfrage außerhalb des Auftrags ablehnen","eine Projektleitung","die Anfrage eines Kunden außerhalb des vereinbarten Umfangs ablehnen, ohne die Beziehung zu belasten","Der Kunde wünscht eine kostenlose Zusatzleistung. Die Projektleitung muss Nein sagen, eine Alternative anbieten und das Vertrauen wahren.","Freundlicher, aber hartnäckiger Kunde, der auf die langjährige Zusammenarbeit pocht."],
+/*7*/["Einen Interessenkonflikt melden","ein Mitarbeiter","die eigene Führungskraft auf einen möglichen Interessenkonflikt mit einem Lieferanten hinweisen","Der Mitarbeiter hat eine Verbindung zwischen einem Lieferanten und einem Kollegen bemerkt. Er muss sachlich warnen, ohne zu beschuldigen.","Aufmerksame, aber vorsichtige Führungskraft, die nach genauen Fakten fragt."],
+/*8*/["An die Regeln der Datensicherheit erinnern","ein Mitarbeiter","einen Kollegen an die Datensicherheitsregeln erinnern, nachdem er versehentlich ein vertrauliches Dokument geteilt hat","Der Kollege hat eine Datei an die falsche Person geschickt. Das muss ohne Vorwürfe besprochen und die richtigen Gewohnheiten müssen festgelegt werden.","Verlegener Kollege, der den Vorfall herunterspielt und das Thema schnell abschließen will."],
+/*9*/["Konstruktives Feedback geben","eine Führungskraft","einem Mitarbeiter nach einer enttäuschenden Kundenpräsentation konstruktives Feedback geben","Die Führungskraft muss Stärken und Verbesserungsfelder benennen und gemeinsam Maßnahmen entwickeln.","Empfindlicher Mitarbeiter, der sich rechtfertigt, sobald Fehler zur Sprache kommen."],
+/*10*/["Ressourcen zwischen Abteilungen verhandeln","eine Projektleitung","mit einer anderen Abteilungsleitung die Ausleihe eines Experten für ein dringendes Projekt verhandeln","Beide Abteilungen haben eigene Prioritäten. Die Projektleitung muss argumentieren und einen realistischen Kompromiss finden.","Leitung einer anderen Abteilung, kooperativ, aber auf ihre Ressourcen bedacht."],
+/*11*/["Konflikt zwischen zwei Pflegekräften","eine Stationsleitung","einen Konflikt zwischen zwei Pflegekräften lösen, die nicht mehr miteinander sprechen","Die Spannung belastet die Station. Die Leitung muss beide Seiten anhören, den Dialog wiederherstellen und Regeln für die Zusammenarbeit festlegen.","Nachtragende Pflegekraft, überzeugt, im Recht zu sein, die der anderen vorwirft, ihren Teil nicht zu leisten."],
+/*12*/["Eine Dienstplanänderung ankündigen","eine Stationsleitung","dem Team eine Dienstplanänderung ankündigen, die die Wochenenden betrifft","Der neue Plan ist durch Personalmangel bedingt. Die Leitung muss die Gründe erklären, Einwände anhören und standhaft bleiben.","Erschöpfte Pflegekraft, die die Gerechtigkeit der Verteilung in Frage stellt."],
+/*13*/["Einen Neuzugang in Schwierigkeiten begleiten","eine Stationsleitung","einen neuen Mitarbeiter begleiten, der sich in der Einarbeitung schwertut","Der Neuzugang fühlt sich überfordert und traut sich nicht, um Hilfe zu bitten. Die Leitung muss ihn dazu bringen, seine Bedürfnisse zu äußern.","Zurückhaltender Neuzugang, der sagt, alles sei in Ordnung, obwohl es nicht so ist."],
+/*14*/["Angehörige sorgen sich um die Betreuung","eine Pflegekraft","auf die Angehörigen eines Bewohners eingehen, die sich um dessen Betreuung sorgen","Die Familie befürchtet mangelnde Aufmerksamkeit. Die Pflegekraft muss mit Fakten beruhigen, ohne Unmögliches zu versprechen.","Ängstlicher Angehöriger, der viele Fragen stellt und an den Antworten zweifelt."],
+/*15*/["Patient verärgert über die Wartezeit","eine Empfangskraft","auf einen Patienten eingehen, der sich über eine lange Wartezeit in der Notaufnahme ärgert","Die Wartezeit übersteigt die Ankündigung. Die Empfangskraft muss informieren, Empathie zeigen und angesichts des Frusts ruhig bleiben.","Gereizter Patient, der sich übergangen fühlt und laut wird."],
+/*16*/["Eine verschobene Behandlung erklären","eine Pflegefachkraft","einem Patienten erklären, warum sein Eingriff verschoben wurde","Die Verschiebung ist auf einen Notfall zurückzuführen. Die Pflegefachkraft muss die Nachricht klar überbringen und das weitere Vorgehen vorschlagen.","Ängstlicher Patient, der sich vorbereitet hatte und es schlecht aufnimmt."],
+/*17*/["Eine Verfahrensabweichung melden","eine Labormitarbeiterin","der eigenen Führungskraft eine soeben festgestellte Abweichung vom Qualitätsverfahren melden","Die Abweichung kann die Rückverfolgbarkeit beeinträchtigen. Die Mitarbeiterin muss die Fakten genau schildern und eine Maßnahme vorschlagen.","Gründliche Qualitätsverantwortliche, die nach Daten, Chargen und Umständen fragt."],
+/*18*/["An die Vertraulichkeit von Patientendaten erinnern","eine Pflegekraft","einen Kollegen an die Schweigepflicht erinnern, nachdem er in einem öffentlichen Bereich über einen Patienten gesprochen hat","Der Kollege hat auf dem Flur über einen Patienten gesprochen. Das muss angesprochen werden, ohne ihn zu kränken, und die Regeln müssen bekräftigt werden.","Erfahrener Kollege, der die Bemerkung übertrieben findet und sich rechtfertigt."],
+/*19*/["Übergabe an den Nachtdienst","eine Pflegefachkraft","dem Nachtdienst die wichtigen Informationen zu einem Patienten lückenlos übergeben","Die Übergabe muss kurz und vollständig sein. Die Pflegefachkraft muss Informationen priorisieren und das Verständnis prüfen.","Aufmerksame Nachtpflegekraft, die gezielt nachfragt, um Lücken zu schließen."],
+/*20*/["Rückmeldung an einen Praktikanten zu einem Handgriff","eine Praxisanleitung","einem Praktikanten konstruktives Feedback zu einem schlecht ausgeführten Handgriff geben","Der Praktikant hat einen Fehler ohne ernste Folgen gemacht. Die Praxisanleitung muss korrigieren und dabei das Vertrauen erhalten.","Eingeschüchterter Praktikant, der sich oft entschuldigt und sich kaum zu fragen traut."],
+/*21*/["Einen Arbeitsplatz- oder Taktwechsel ankündigen","eine Teamleitung","einem Bediener einen Wechsel des Arbeitsplatzes oder des Takts in der Produktion ankündigen","Der Wechsel entspricht einem Bedarf der Linie. Die Teamleitung muss erklären, zuhören und Zustimmung gewinnen.","Erfahrener Bediener, der an seinem Platz hängt und auf Betriebszugehörigkeit und Belastung verweist."],
+/*22*/["Konflikt zwischen zwei Produktionsteams","eine Produktionsleitung","in einem Konflikt zwischen zwei Teams vermitteln, die sich gegenseitig Probleme bei der Schichtübergabe vorwerfen","Jedes Team wirft dem anderen vor, Fehler zu hinterlassen. Die Leitung muss die Fakten klären und einen gemeinsamen Standard festlegen.","Defensive Teamleitung, die die Schuld der nachfolgenden Schicht zuschiebt."],
+/*23*/["Das Team nach einem Qualitätsvorfall neu motivieren","eine Produktionsleitung","das Team nach einem Qualitätsvorfall mit hohem Ausschuss neu motivieren","Das Team fühlt sich an den Pranger gestellt. Die Leitung muss ohne Schuldzuweisung analysieren und Vertrauen wiederherstellen.","Demotivierter Bediener, der findet: „Am Ende sind sowieso immer wir schuld.“"],
+/*24*/["Nicht konforme Charge bei einem Industriekunden","eine Qualitätsleitung","auf einen Industriekunden reagieren, der eine nicht konforme Charge erhalten hat","Der Kunde droht, Bestellungen auszusetzen. Die Leitung muss das Problem anerkennen, einen Korrekturplan vorlegen und beruhigen.","Anspruchsvoller Industriekunde, der eine Ursachenanalyse innerhalb von 48 Stunden verlangt."],
+/*25*/["Maschinenstillstand beim Kunden","ein Servicetechniker","einen Kunden betreuen, dessen Maschine stillsteht und der auf einen Einsatz wartet","Jede Stunde Stillstand kostet den Kunden Geld. Der Techniker muss informieren, priorisieren und unter Druck professionell bleiben.","Gestresster Kunde, der einen genauen Einsatztermin verlangt."],
+/*26*/["Lieferverzug bei einem Großkunden","eine Mitarbeiterin der Auftragsabwicklung","einem Großkunden einen Lieferverzug erklären und eine Lösung vorschlagen","Der Verzug gefährdet die Produktion des Kunden. Die Mitarbeiterin muss transparent informieren und eine Alternative vorschlagen.","Entschlossener Einkäufer des Kunden, der ein Entgegenkommen erreichen will."],
+/*27*/["Bediener ohne Schutzausrüstung","eine Teamleitung","einen Bediener zurechtweisen, der seine persönliche Schutzausrüstung nicht trägt","Der Bediener sagt, die Ausrüstung störe ihn. Die Teamleitung muss die Regel bestimmt bekräftigen und das Hindernis verstehen.","Altgedienter Bediener, der die Regeln in seinem Fall für überflüssig hält."],
+/*28*/["Einen Beinaheunfall nachbesprechen","eine Sicherheitsfachkraft","einen Beinaheunfall mit dem betroffenen Bediener nachbesprechen, ohne einen Schuldigen zu suchen","Ziel ist das Lernen. Die Sicherheitsfachkraft muss sich die Fakten schildern lassen und gemeinsam mit dem Bediener die Ursachen ermitteln.","Verunsicherter Bediener, der Sanktionen fürchtet und das Geschehen herunterspielt."],
+/*29*/["Schichtübergabe zwischen Teams","eine Teamleitung","der nächsten Schicht die Anweisungen zum Schichtende übergeben und auf kritische Punkte hinweisen","Die Übergabe muss klar und kurz sein. Die Teamleitung muss priorisieren und sicherstellen, dass alles verstanden wurde.","Eilige Teamleitung der Folgeschicht, die unterbricht, um das Wesentliche zu erfahren."],
+/*30*/["Die Instandhaltung von einer wiederkehrenden Störung überzeugen","ein Anlagenbediener","die Leitung der Instandhaltung überzeugen, eine wiederkehrende Störung vorrangig zu beheben","Die Störung bremst die Linie, doch die Instandhaltung hat andere Notfälle. Der Bediener muss mit Fakten argumentieren.","Überlastete Instandhaltungsleitung, die vor einer Zusage die bezifferten Auswirkungen sehen will."],
+/*31*/["Das Verhalten eines Verkäufers gegenüber Kunden korrigieren","eine Abteilungsleitung","einen Verkäufer ansprechen, dessen Auftreten gegenüber Kunden als kühl empfunden wird","Kunden haben sich beschwert. Die Leitung muss konkrete Beispiele nennen und dem Verkäufer helfen, sich zu verändern.","Erfahrener Verkäufer, der sich für effektiv hält und die Kritik zurückweist."],
+/*32*/["Geänderte Arbeitszeiten für den Schlussverkauf ankündigen","eine Filialleitung","dem Team geänderte Arbeitszeiten während des Schlussverkaufs ankündigen","Die Zeit ist arbeitsintensiv und die Vorgaben sind streng. Die Leitung muss erklären, zuhören und standhaft bleiben.","Teilzeitverkäuferin mit privaten Verpflichtungen, die um Anpassungen bittet."],
+/*33*/["Eine neue Kraft begleiten, die sich nicht an Kunden herantraut","eine Abteilungsleitung","eine neue Mitarbeiterin begleiten, die zögert, Kunden anzusprechen","Der neuen Mitarbeiterin fehlt Selbstvertrauen. Die Leitung muss helfen, die Hemmschwelle zu benennen, und mit ihr üben.","Schüchterne neue Mitarbeiterin, die sagt, sie wolle die Kunden nicht stören."],
+/*34*/["Erstattung nach Fristablauf","ein Verkäufer","eine Erstattungsanfrage nach Ablauf der Rückgabefrist bearbeiten und den Kunden zufriedenstellen","Der Kunde möchte eine Erstattung, obwohl die Frist abgelaufen ist. Der Verkäufer muss die Regel anwenden und eine Alternative anbieten.","Entschlossener Kunde, der auf seine Treue zum Geschäft verweist."],
+/*35*/["Einen unentschlossenen Kunden beraten","eine Verkaufsberaterin","einen unentschlossenen Kunden beraten und ihm ohne Druck bei der Wahl helfen","Der Kunde schwankt zwischen mehreren Produkten. Die Beraterin muss seinen Bedarf verstehen und zum Abschluss führen.","Vorsichtiger Kunde, der Preise vergleicht und viele Fragen stellt."],
+/*36*/["Kunde verärgert über die Warteschlange an der Kasse","eine Kassenkraft","einen Kunden beruhigen, der sich über eine lange Schlange an der Kasse ärgert","Der Kunde wird vor anderen Kunden laut. Die Kassenkraft muss ruhig bleiben und schnell eine Lösung finden.","Eiliger, gereizter Kunde, der droht, seinen Einkauf stehen zu lassen."],
+/*37*/["Verdacht auf Ladendiebstahl","eine Verkaufsmitarbeiterin","auf einen Verdacht auf Ladendiebstahl reagieren und dabei das vorgesehene Verfahren einhalten","Die Mitarbeiterin muss das Verfahren befolgen, ohne zu Unrecht zu beschuldigen. Sie muss höflich bleiben und die richtige Person hinzuziehen.","Überraschter, gekränkter Kunde, der jede Absicht bestreitet und sich aufregt."],
+/*38*/["Kassendifferenz","eine Führungskraft","mit einer Kassenkraft über eine wiederholte Kassendifferenz sprechen","Die Differenz tritt immer wieder auf. Die Führungskraft muss sich an die Fakten halten, die Ursachen verstehen und die Regeln bekräftigen.","Besorgte Kassenkraft, die fürchtet, der Unehrlichkeit verdächtigt zu werden."],
+/*39*/["Das Briefing zur Ladenöffnung leiten","eine Abteilungsleitung","das Team-Briefing zur Öffnung in drei Minuten mit den Prioritäten des Tages leiten","Das Briefing muss kurz, motivierend und klar sein. Die Leitung muss die Botschaften priorisieren.","Eiliges Team, das mit praktischen Fragen unterbricht."],
+/*40*/["Ein Nachschubproblem an die Zentrale melden","eine Filialleitung","der Zentrale einen Versorgungsengpass melden, der den Umsatz beeinträchtigt","Fehlbestände wiederholen sich. Die Leitung muss mit Fakten argumentieren und Maßnahmen erwirken.","Beschäftigte Supply-Chain-Leitung der Zentrale, die vor einer Reaktion Daten sehen will."],
+/*41*/["Gespräch mit einem Berater unter Ziel","eine Filialdirektion","ein Gespräch mit einem Berater führen, der hinter seinen Vertriebszielen zurückliegt","Der Berater ist von seinen Ergebnissen demotiviert. Die Direktion muss die Ursachen analysieren und einen Aktionsplan erstellen.","Entmutigter Berater, der seine Ergebnisse mit dem Marktumfeld erklärt."],
+/*42*/["Einen Berater bei der Akquise begleiten","eine Filialdirektion","einen Berater begleiten, der die Neukundenakquise meidet","Der Berater bevorzugt den Bestandskundenstamm. Die Direktion muss die Blockade verstehen und einen Rahmen vorschlagen.","Berater, der sich bei Bestandskunden wohlfühlt, aber bei der Kaltakquise unsicher ist."],
+/*43*/["Neue, anspruchsvollere Ziele ankündigen","eine Filialdirektion","dem Team neue, anspruchsvollere Vertriebsziele ankündigen","Die Ziele steigen. Die Direktion muss den Kontext erklären, Bedenken anhören und motivierend bleiben.","Skeptischer Berater, der die Ziele für unrealistisch hält."],
+/*44*/["Eine Kreditablehnung mitteilen","eine Kundenberaterin","einem Kunden eine Kreditablehnung mitteilen und die Beziehung erhalten","Der Antrag wird nicht bewilligt. Die Beraterin muss klar erklären, Optionen aufzeigen und menschlich bleiben.","Enttäuschter Kunde, der mit diesem Kredit gerechnet hat und die Entscheidung anficht."],
+/*45*/["Kunde besorgt über fallende Anlagen","eine Kundenberaterin","einen Kunden beruhigen, der sich über den Wertverlust seiner Geldanlagen sorgt","Der Markt ist volatil. Die Beraterin muss erklären, ohne zu verharmlosen, und an die Strategie erinnern.","Ängstlicher Kunde, der sofort alles verkaufen will."],
+/*46*/["Beschwerde über Bankgebühren","eine Kundenberaterin","die Beschwerde eines Kunden bearbeiten, der berechnete Bankgebühren anficht","Der Kunde fühlt sich schlecht informiert. Die Beraterin muss zuhören, erklären und eine Lösung vorschlagen.","Verärgerter Kunde, der mit einem Bankwechsel droht."],
+/*47*/["Regulatorische Angaben eines zögerlichen Kunden einholen","eine Kundenberaterin","regulatorisch vorgeschriebene Angaben bei einem Kunden einholen, der sie ungern preisgibt","Der Kunde findet die Fragen aufdringlich. Die Beraterin muss die gesetzliche Pflicht erklären und beruhigen.","Verärgerter Kunde, der fragt, wozu die Bank diese Angaben braucht."],
+/*48*/["Eine verdächtige Transaktion melden","ein Mitarbeiter","der eigenen Führungskraft eine verdächtige Transaktion melden und das weitere Vorgehen festlegen","Die Transaktion zeigt ungewöhnliche Signale. Der Mitarbeiter muss die Fakten darlegen, ohne zu beschuldigen, und das Verfahren einhalten.","Aufmerksame Führungskraft, die genaue Angaben verlangt, bevor sie die Compliance informiert."],
+/*49*/["Eine Kreditvorlage im Ausschuss verteidigen","ein Firmenkundenbetreuer","eine Kreditvorlage vor dem Kreditausschuss präsentieren und verteidigen","Der Ausschuss hinterfragt die Annahmen. Der Betreuer muss mit Zahlen argumentieren und Einwände beantworten.","Anspruchsvolles Ausschussmitglied, das auf den Risiken beharrt."],
+/*50*/["Einen Kundenbestand übergeben","eine Kundenberaterin","den eigenen Kundenbestand vor dem Weggang an eine Kollegin übergeben","Die Übergabe muss vollständig und reibungslos sein. Die Beraterin muss Kunden priorisieren und auf heikle Punkte hinweisen.","Eilige Kollegin, die zu jedem Kunden gezielt nachfragt."],
+/*51*/["Weniger Stunden für einen internen Trainer ankündigen","eine Akademieleitung","einem internen Trainer ankündigen, dass seine Trainingsstunden reduziert werden","Die Akademie reduziert ihr Präsenzangebot. Die Leitung muss erklären und andere Aufgaben vorschlagen.","Trainer, der an der Moderation hängt und sich abgewertet fühlt."],
+/*52*/["Einen neuen Trainer nach einer schwierigen Session begleiten","eine pädagogische Leitung","einen neuen Trainer nach einer misslungenen Session begleiten","Der Trainer zweifelt an sich. Die Leitung muss nachbesprechen, ohne zu entmutigen, und einen Entwicklungsplan erstellen.","Entmutigter neuer Trainer, der glaubt, nicht für den Beruf gemacht zu sein."],
+/*53*/["In einem Streit zwischen zwei Konzeptern vermitteln","eine pädagogische Leitung","in einem Streit zwischen zwei Instructional Designern über den Ansatz eines Lernpfads entscheiden","Jeder verteidigt seine Vision. Die Leitung muss zuhören, auf das Lernziel zurückführen und entscheiden.","Instructional Designer, überzeugt von seiner Methode, der Kritik persönlich nimmt."],
+/*54*/["Demotivierter Teilnehmer stört die Session","ein Trainer","mit einem demotivierten Teilnehmer umgehen, der die Schulung stört","Der Teilnehmer wurde von seiner Führungskraft geschickt. Der Trainer muss ihn zurückgewinnen, ohne die Gruppe zu verlieren.","Verschlossener Teilnehmer, der sagt, er habe um nichts gebeten und sehe keinen Sinn darin."],
+/*55*/["Den Bedarf einer auftraggebenden Führungskraft klären","eine Betreuerin für Firmenkunden","den Bedarf einer Führungskraft erfassen, die eine Schulung will, ohne genau zu wissen wofür","Die Führungskraft will „etwas zur Kommunikation“. Die Betreuerin muss das eigentliche Problem herausarbeiten.","Auftraggebende Führungskraft, vage und eilig, die schnell eine Antwort will."],
+/*56*/["Teilnehmer unzufrieden mit seiner Schulung","eine Weiterbildungsreferentin","auf einen Teilnehmer eingehen, der mit der gerade absolvierten Schulung unzufrieden ist","Der Teilnehmer findet die Schulung zu theoretisch. Die Referentin muss zuhören, verstehen und einen nächsten Schritt vorschlagen.","Enttäuschter Teilnehmer, der glaubt, seine Zeit verschwendet zu haben."],
+/*57*/["An die Dokumentationspflichten erinnern","eine Qualitätsverantwortliche für Weiterbildung","einen Trainer an seine Dokumentationspflichten bei Anwesenheitslisten und Bewertungen erinnern","Vor einem Audit fehlen Unterlagen. Die Verantwortliche muss die Regeln bekräftigen und eine rasche Nachreichung erreichen.","Freiberuflicher Trainer, der diese Verwaltungspflichten übertrieben findet."],
+/*58*/["Antrag auf Löschung personenbezogener Daten","eine Weiterbildungsreferentin","auf einen Teilnehmer reagieren, der die Löschung seiner personenbezogenen Daten verlangt","Die Referentin muss das Datenschutzverfahren anwenden und erklären, was gelöscht oder aufbewahrt werden kann.","Teilnehmer, der seine Rechte kennt und eine genaue Antwort mit Fristen verlangt."],
+/*59*/["Das Weiterbildungsbudget vor der Geschäftsleitung verteidigen","eine Leitung der Weiterbildung","der Geschäftsleitung die Ergebnisse eines Schulungsprogramms vorstellen und dessen Budget verteidigen","Die Geschäftsleitung zweifelt am Return on Investment. Die Leitung muss Ergebnisse vorlegen und argumentieren.","Skeptischer Finanzvorstand, der nach Zahlen und Geschäftsauswirkungen fragt."],
+/*60*/["Eine Führungskraft überzeugen, ihr Team freizustellen","eine Weiterbildungsreferentin","eine Führungskraft überzeugen, ihre Mitarbeitenden für eine Schulung freizustellen","Die Führungskraft verweist auf die Arbeitslast. Die Referentin muss den Nutzen belegen und einen Zeitplan vorschlagen.","Überlastete Führungskraft, die Weiterbildung für Zeitverschwendung hält."],
+/*61*/["Den Einwand „Wir haben schon ein Tool“ entkräften","ein Key Account Manager","den Einwand eines Interessenten entkräften, der bereits ein Konkurrenzprodukt nutzt","Der Interessent hat einem ersten Gespräch zugestimmt, sieht aber keinen Grund zu wechseln. Der Key Account Manager muss die Grenzen des aktuellen Tools ausloten, ohne es schlechtzumachen, und einen Folgetermin vereinbaren.","Skeptischer, eiliger IT-Leiter, der an die Kosten eines Toolwechsels erinnert."],
+/*62*/["Den Wert eines Vertrags gegen den Preis verteidigen","eine Versicherungsberaterin","den Wert eines Vertrags gegenüber einem Kunden verteidigen, der nur über den Preis eines Konkurrenzangebots spricht","Der Kunde hat ein günstigeres Angebot erhalten und erwägt zu wechseln. Die Beraterin muss Leistungen vergleichen, den Mehrwert herausstellen und eine realistische Anpassung vorschlagen.","Misstrauischer, preisfixierter Kunde, der bei jedem Argument das Konkurrenzangebot hervorholt."],
+/*63*/["Einen skeptischen verordnenden Arzt überzeugen","ein Außendienstmitarbeiter","einen skeptischen verordnenden Arzt überzeugen, einen neuen Schnellbefund-Service zu nutzen","Der Arzt ist mit seinen Abläufen zufrieden und hat wenig Zeit. Der Außendienstmitarbeiter muss bei den Praxisabläufen ansetzen, den Nutzen für Patienten zeigen und einen Test vereinbaren.","Eiliger, skeptischer Hausarzt, der seinem Praxisteam keinen zusätzlichen Aufwand zumuten will."],
+/*64*/["Eine Zusatzleistung ohne Druck anbieten","ein Verkäufer","einem Kunden, der gerade sein Produkt gewählt hat, eine Zusatzleistung wie Installation oder Garantieverlängerung anbieten","Der Kunde hat sich entschieden und will zur Kasse. Der Verkäufer muss die Leistung im richtigen Moment und passend zur Nutzung vorstellen und ein Nein akzeptieren.","Eiliger Kunde, misstrauisch gegenüber „Extras“, der glaubt, man wolle ihm etwas Unnötiges verkaufen."],
+/*65*/["Einem Einkäufer eine Preiserhöhung ankündigen","ein Vertriebsingenieur","dem Einkäufer eines Großkunden eine Preiserhöhung von 6 % ankündigen","Die Erhöhung ist durch die Rohstoffkosten bedingt. Der Vertriebsingenieur muss sie klar ankündigen, begründen und Gegenleistungen verhandeln, ohne beim Wesentlichen nachzugeben.","Entschlossener Einkäufer eines Großkunden, der mit einer Ausschreibung droht."],
+/*66*/["Ein KMU überzeugen, die Personalsuche auszulagern","ein Vertriebsmitarbeiter einer Personalagentur","den Inhaber eines KMU überzeugen, seine Zeitarbeitskräfte über die Agentur zu besetzen","Der Inhaber stellt aus Gewohnheit selbst ein und findet Zeitarbeit teuer. Der Vertriebsmitarbeiter muss seine Rekrutierungsprobleme verstehen und deren Kosten beziffern.","Misstrauischer KMU-Inhaber, der schlechte Erfahrungen gemacht hat und Agenturen zu teuer findet."],
+/*67*/["Beim Check-in ein Upgrade anbieten","eine Rezeptionskraft","einem Gast beim Check-in ein Zimmer einer höheren Kategorie anbieten","Der Gast kommt müde nach einer langen Reise an. Die Rezeptionskraft muss ihn empfangen, die Gelegenheit erkennen und das Angebot ohne Drängen vorstellen.","Müder, wenig aufnahmebereiter Gast, der nur seinen Schlüssel will."],
+/*68*/["Kunde droht mit Nichtverlängerung","ein Customer Success Manager","ein Gespräch mit einem Kunden führen, der wegen geringer Nutzung damit droht, sein Abonnement nicht zu verlängern","Der Kunde findet, dass seine Teams das Tool kaum nutzen. Der Customer Success Manager muss die Ursachen verstehen, den eigenen Anteil anerkennen und einen konkreten Adoptionsplan vorschlagen.","Enttäuschter Sponsor auf Kundenseite, der unter Druck seiner Geschäftsleitung die Ausgabe rechtfertigen muss."],
+/*69*/["Einem durch einen Fehler blockierten Kunden schriftlich antworten","ein Supportmitarbeiter","einem Großkunden, der durch einen Softwarefehler blockiert ist, schriftlich antworten, ohne interne Informationen preiszugeben","Der Fehler ist bekannt und eine Korrektur ist in Arbeit. Der Supportmitarbeiter muss diagnostizieren, eine Übergangslösung anbieten und Transparenz schaffen, ohne interne Abstimmungen zu teilen.","Verärgerter Großkunde, der kurze Nachrichten schreibt und ein Datum für die Korrektur verlangt."],
+/*70*/["Kunde beanstandet eine Preiserhöhung des Abos","ein Kundenberater","auf einen Kunden reagieren, der anruft, um die per E-Mail angekündigte Preiserhöhung seines Abonnements zu beanstanden","Der Kunde befürchtet versteckte Kosten und eine Unterbrechung des Dienstes. Der Berater muss die Erhöhung erklären, beruhigen und im Rahmen seiner Befugnisse einen passenden Tarif vorschlagen.","Zu Beginn des Gesprächs wütender Kunde, der sich beruhigt, wenn er sich gehört fühlt und eine klare Erklärung bekommt."],
+/*71*/["Einen kündigungswilligen Kunden halten","ein Kundenbindungsberater","den Kündigungswunsch eines Kunden bearbeiten und versuchen, ihn ohne Druck zu halten","Der Kunde hat ein Konkurrenzangebot erhalten und ruft an, um zu kündigen. Der Berater muss den eigentlichen Grund verstehen, eine Alternative anbieten und die Entscheidung respektieren, wenn sie bestehen bleibt.","Entschlossener Kunde, höflich, aber bestimmt, der die Angebote bereits verglichen hat."],
+/*72*/["Kunde verlangt eine vorgesetzte Person","ein Kundenberater","mit einem Kunden umgehen, der nach mehreren erfolglosen Anrufen eine vorgesetzte Person verlangt","Der Kunde hat bereits dreimal angerufen. Der Berater muss den Fall übernehmen, zeigen, dass er handeln kann, und nur bei Bedarf weiterverbinden.","Aufgebrachter Kunde, der immer wieder „Verbinden Sie mich mit Ihrem Vorgesetzten“ sagt und unterbricht."],
+/*73*/["Eine treue Kundin kontaktieren","eine Verkaufsberaterin","eine treue Kundin anrufen, ihr eine neue Kollektion vorstellen und sie in die Boutique einladen","Die Kundin kauft regelmäßig, war aber seit Monaten nicht mehr da. Die Beraterin muss die Beziehung neu beleben, das Angebot personalisieren und einen Besuch vereinbaren.","Treue Kundin, höflich, aber wenig verfügbar, die sich nicht gern umworben fühlt."],
+/*74*/["Beschädigtes Luxusprodukt","eine Verkaufsberaterin","eine Kundin empfangen, die ein nach wenigen Wochen beschädigtes Luxusprodukt zurückbringt","Die Kundin ist angesichts des Preises enttäuscht. Die Beraterin muss zuhören, sich der Sache annehmen und das Image des Hauses wahren, im Rahmen der Garantiebedingungen.","Enttäuschte Kundin, elegant und kühl, die eine dem Preis angemessene Behandlung erwartet."],
+/*75*/["Reisender verärgert nach einer Annullierung","eine Servicekraft","einen verärgerten Reisenden betreuen, dessen Verbindung gerade annulliert wurde","Der Reisende droht einen wichtigen Termin zu verpassen. Die Servicekraft muss seinen Ärger auffangen, die Lage erklären und die verfügbaren Umbuchungen anbieten.","Wütender, eiliger Reisender, der dem Unternehmen Geringschätzung seiner Kunden vorwirft."],
+/*76*/["Kollege umgeht eine Sicherheitsregel","eine Teamleitung","einen Mitarbeiter ansprechen, der eine Sicherheitsregel umgangen hat, um Zeit zu sparen","Der Mitarbeiter hat eine vorgeschriebene Prüfung ausgelassen, um den Fahrplan einzuhalten. Die Teamleitung muss die Regel bekräftigen, den empfundenen Druck verstehen und eine Zusage erhalten.","Erfahrener Mitarbeiter in der Defensive, der auf Verspätungen und Zeitdruck verweist."],
+/*77*/["Ein strukturiertes Vorstellungsgespräch führen","eine Führungskraft","ein strukturiertes Vorstellungsgespräch mit einem Bewerber führen, der vage antwortet","Die Führungskraft muss verhaltensbezogene Fragen stellen, Beispiele vertiefen und den Bewerber nach festgelegten Kriterien bewerten, ohne sich von seiner Gewandtheit blenden zu lassen.","Redegewandter Bewerber, der in Allgemeinplätzen antwortet und konkreten Beispielen ausweicht."],
+/*78*/["Ein Anhörungsgespräch vor einer Abmahnung führen","eine Personalleitung","ein Anhörungsgespräch vor einer disziplinarischen Maßnahme mit einem Mitarbeiter führen, der die Vorwürfe bestreitet","Die Personalleitung muss die Fakten neutral darlegen, die Erklärungen des Mitarbeiters anhören und das Verfahren einhalten, ohne im Gespräch eine Entscheidung zu verkünden.","Streitbarer Mitarbeiter in Begleitung, der die Vorwürfe bestreitet und seine Vorgesetzten verantwortlich macht."],
+/*79*/["Eine Gehaltserhöhung ablehnen","eine Führungskraft","die Bitte eines guten Mitarbeiters um Gehaltserhöhung ablehnen, ohne ihn zu demotivieren","Das Budget lässt in diesem Jahr keine Erhöhung zu. Die Führungskraft muss die Absage mitteilen, den Beitrag würdigen und einen glaubwürdigen Entwicklungsplan aufbauen.","Leistungsstarker, enttäuschter Mitarbeiter, der andeutet, sich anderweitig umzusehen."],
+/*80*/["Das vorzeitige Ende eines Einsatzes mitteilen","eine Personaldisponentin","einer Zeitarbeitskraft das vorzeitige Ende ihres Einsatzes bei einem Kundenunternehmen mitteilen","Das Kundenunternehmen fährt seine Aktivität zurück. Die Disponentin muss die Nachricht klar überbringen, die Modalitäten erklären und eine Perspektive anbieten.","Besorgte Zeitarbeitskraft, die mit diesem Einsatz gerechnet hat und Einkommensausfälle fürchtet."],
+/*81*/["Das Angebot in zwei Minuten präsentieren","ein neuer Vertriebsmitarbeiter","das Angebot in zwei Minuten einem eiligen Interessenten präsentieren, der ihn unterbricht","Am Ende der Einarbeitung muss der neue Vertriebsmitarbeiter das Nutzenversprechen präsentieren, auf Unterbrechungen reagieren und einen Termin zur Bedarfsanalyse erhalten.","Eiliger Interessent, der unterbricht und fragt: „Was bringt mir das konkret?“"],
+/*82*/["Einen wegen KI besorgten Mitarbeiter beruhigen","eine Führungskraft","einen Mitarbeiter beruhigen, der fürchtet, dass ein neues KI-Tool seinen Arbeitsplatz bedroht","Das Team wird einen KI-Assistenten einsetzen. Die Führungskraft muss die Sorgen anhören, erklären, was sich wirklich ändert, und den Mitarbeiter in die Einführung einbinden.","Erfahrener, besorgter Mitarbeiter, der glaubt, die KI werde ihn ersetzen."]
+];
+var PHRASES_DE = [
+["Danke, dass du dir Zeit nimmst. Ich möchte mit dir über deine Verspätungen der letzten Wochen sprechen, weil sie das Team allmählich belasten.","Was ist bei dir los, dass das so oft passiert?","Wir halten fest: Ab Montag bist du um 9 Uhr da, und in zwei Wochen sprechen wir wieder. Passt das für dich?"],
+["Ich möchte euch direkt über eine Änderung der Organisation informieren und sage euch gleich, was ich weiß und was noch nicht.","Ich verstehe, dass das Fragen aufwirft. Was beunruhigt euch an dieser Veränderung am meisten?","Ich komme am Donnerstag mit den fehlenden Antworten zurück, und bis Freitag hat jeder ein Einzelgespräch."],
+["Ich möchte dir eine wichtige Aufgabe übertragen, weil ich glaube, dass du das schaffst.","Was bräuchtest du, um dich bei diesem Thema sicher zu fühlen?","Du verantwortest den Inhalt. Am Mittwoch machen wir einen Zwischenstand, und du kommst zu mir, sobald du nicht weiterkommst."],
+["Ich verstehe Ihren Ärger: Diese Verzögerung hätte nicht passieren dürfen, und ich möchte Ihnen erklären, was schiefgelaufen ist.","Was ist für Sie an diesem Ergebnis am dringendsten?","Der Plan: erster Teil am Freitag, der Rest am Dienstag, und ich rufe Sie jeden Morgen an, um Sie auf dem Laufenden zu halten."],
+["Um Ihren Bedarf wirklich zu verstehen: Können Sie mir die Situation schildern, die Sie zu uns geführt hat?","Wenn ich zusammenfasse, möchten Sie vor allem Zeit bei Ihren Abläufen sparen. Stimmt das?","Ich schlage vor, das auf einer Seite festzuhalten und am Donnerstag gemeinsam abzustimmen."],
+["Ich verstehe den Sinn dieser Anfrage und sehe, warum sie Ihnen wichtig ist.","Sie liegt außerhalb des vereinbarten Umfangs, daher kann ich sie nicht ohne Auswirkungen auf Zeitplan oder Budget aufnehmen.","Ich schlage zwei Optionen vor: eine Vertragsergänzung oder eine zweite Projektphase. Was passt Ihnen besser?"],
+["Ich möchte dich auf etwas hinweisen, das mir aufgefallen ist, ohne voreilige Schlüsse zu ziehen.","Das habe ich festgestellt: das Datum, den betroffenen Lieferanten und die Verbindung, die ich bemerkt habe.","Wie soll ich jetzt vorgehen, und wer muss informiert werden?"],
+["Ich möchte mit dir über das Dokument sprechen, das gestern an die falsche Adresse ging, nicht um dir Vorwürfe zu machen.","Wie ist das bei dir passiert? Warum hast du diesen Empfänger gewählt?","Künftig prüfen wir immer den Empfänger und nutzen den geschützten Ordner. Soll ich es dir zeigen?"],
+["Ich möchte mit dir über die Präsentation von gestern sprechen. Zuerst, was gut lief: Dein Teil zu den Zahlen war klar.","Weniger überzeugend fand ich die Empfehlungen. Wie hast du das erlebt?","Für das nächste Mal proben wir am Dienstag gemeinsam, und du schlägst eine kürzere Struktur vor."],
+["Danke, dass du dir Zeit nimmst. Ich habe ein dringendes Projekt und bräuchte deine Hilfe bei einer Schlüsselressource.","Ich weiß, dass deine Teams ausgelastet sind. Welche Einschränkungen hast du in den nächsten drei Wochen?","Was hältst du davon, wenn ich die Person einen Monat lang zwei Tage pro Woche ausleihe, mit einem Zwischenstand zur Halbzeit?"],
+["Ich möchte mit dir über die Situation zwischen euch beiden sprechen, weil sie die Station belastet.","Ich möchte zuerst deine Sicht hören, ohne zu unterbrechen. Was ist aus deiner Sicht passiert?","Wir machen es so: zwei Wochen lang jeden Morgen eine kurze Abstimmung, und am Freitag sprechen wir wieder."],
+["Ich habe euch zusammengerufen, um eine Änderung des Dienstplans an den Wochenenden anzukündigen, und erkläre euch die Gründe.","Ich verstehe, dass euch das trifft. Was ist für euch daran am schwierigsten?","Das Prinzip bleibt, aber ich kann Tausche untereinander an den Wochenenden prüfen. Schickt sie mir bis Donnerstag."],
+["Ich wollte hören, wie es dir seit deinem Start geht. Wie läuft es wirklich?","Was fällt dir im Moment am schwersten?","Nächste Woche bekommst du für drei Schichten eine Patin, und am Freitag sprechen wir wieder."],
+["Ich verstehe Ihre Sorge und danke Ihnen, dass Sie mich direkt ansprechen.","Das haben wir diese Woche für Ihren Angehörigen getan, und darauf achten wir weiterhin.","Ich schlage jeden Donnerstag ein Gespräch mit dem Team vor, und Sie können jederzeit nach der Stationsleitung fragen."],
+["Ich verstehe, dass die Wartezeit lang ist, und das tut mir leid.","So ist der Stand: Dringende Fälle gehen vor, und vor Ihnen sind noch zwei Personen.","Ich gebe Ihnen Bescheid, sobald es Neues gibt, und schaue in zwanzig Minuten wieder bei Ihnen vorbei."],
+["Ich muss Ihnen leider mitteilen, dass Ihr Eingriff verschoben wurde, und möchte Ihnen erklären, warum.","Ein Notfall hat den Saal belegt. Ich verstehe, dass das schwer ist, nachdem Sie sich vorbereitet haben.","Neuer Termin: Donnerstagvormittag. Wenn Ihnen das nicht passt, suche ich mit Ihnen eine Alternative."],
+["Ich muss eine Verfahrensabweichung melden, die ich gerade bei Charge 4 festgestellt habe.","Die Fakten: Datum, Uhrzeit, der betroffene Schritt und was nicht eingehalten wurde.","Ich habe die Charge bis zu deiner Entscheidung gesperrt. Welche Maßnahme empfiehlst du?"],
+["Ich möchte mit dir über das sprechen, was du vorhin auf dem Flur gesagt hast, weil mich das etwas beschäftigt.","Wir waren an einem Ort, an dem andere mithören konnten. Ist dir das bewusst?","Wir sprechen über Patienten nur noch im Übergaberaum. Einverstanden?"],
+["Ich übergebe dir das Wichtigste zu Zimmer 12: Schmerzen beobachten, Medikation um 18 Uhr umgestellt.","Drei Punkte für die Nacht: Vitalwerte alle zwei Stunden, Flüssigkeitszufuhr, bei Fieber den Arzt rufen.","Hast du Fragen? Kannst du mir die Punkte zur Beobachtung noch einmal wiederholen?"],
+["Ich möchte mit dir die Versorgung von vorhin durchgehen. Wie hast du sie erlebt?","Ein Handgriff muss wiederholt werden: die Handhaltung. Ich zeige es dir, dann machst du es noch einmal vor mir.","Beim Rest hast du gute Fortschritte gemacht. Wiederholen wir den Handgriff morgen früh zusammen?"],
+["Ich muss dir eine Änderung an deinem Arbeitsplatz ankündigen und erkläre sie dir lieber persönlich.","Ich weiß, dass du an diesem Platz hängst. Was beunruhigt dich an der Änderung?","Wir testen es zwei Wochen lang, mit einem Zwischenstand zur Halbzeit, um nachzujustieren."],
+["Ich habe euch beide zusammengeholt, weil die Schichtübergaben ein Problem sind, und ich möchte, dass wir gemeinsam eine Lösung finden.","Sagt mir beide, was am Ende eurer Schicht offen bleibt, mit konkreten Beispielen.","Wir legen eine gemeinsame Checkliste für das Schichtende fest, die ihr beide bis Freitag freigebt."],
+["Ich möchte über den Qualitätsvorfall vom Montag sprechen, nicht um einen Schuldigen zu finden, sondern um daraus zu lernen.","Was hat eurer Meinung nach zu diesem Fehler geführt?","Das ändern wir ab morgen, und danke dafür, wie ihr die Nacharbeit gemeistert habt."],
+["Danke für Ihre Meldung. Wir bestätigen, dass die Charge nicht konform ist.","Unser Plan: Ursachenanalyse innerhalb von 48 Stunden und Ersatz der Charge innerhalb von fünf Tagen.","Ich rufe Sie am Donnerstag mit dem Analysebericht an. Passt Ihnen das?"],
+["Ich verstehe die Dringlichkeit: Ihre Maschine steht, und jede Stunde zählt.","Damit wir schnell eingreifen können: Was ist passiert, und welche Fehlermeldung wird angezeigt?","Ein Techniker ist morgen um 8 Uhr bei Ihnen, und ich informiere Sie über seine Ankunft."],
+["Ich melde mich, um Sie vor einem Lieferverzug zu warnen, bevor er Sie trifft.","Bis wann brauchen Sie die Ware, damit Ihre Produktion nicht stillsteht?","Ich schlage eine Teillieferung am Dienstag und den Rest am Donnerstag vor, mit täglicher Rückmeldung."],
+["Ich sehe, dass du ohne Schutzausrüstung arbeitest. Darüber muss ich jetzt sofort mit dir sprechen.","Was stört dich an der Ausrüstung?","Ich verstehe, wir prüfen eine Alternative, aber bis dahin trägst du sie. Darüber gibt es keine Diskussion."],
+["Ich möchte mit dir noch einmal durchgehen, was vorhin passiert ist, damit es niemand anderem passiert.","Erzähl mir die Situation von Anfang an, so wie du sie erlebt hast.","Was ändern wir, damit das nicht wieder vorkommt? Ich notiere deine Vorschläge."],
+["Die wichtigsten Punkte zum Schichtende: Linie 2 läuft mit reduziertem Takt, und Maschine B muss beobachtet werden.","Einziger dringender Punkt: die Einstellung jede Stunde prüfen. Bei der Sicherheit nichts Besonderes.","Kannst du mir die zwei Punkte, auf die du achten musst, noch einmal sagen?"],
+["Danke, dass du mich empfängst. Ich bringe dir Zahlen zu einer Störung, die jede Woche wiederkommt.","Sie kostet uns etwa zwei Stunden Produktion pro Woche, also [x] Teile.","Kannst du sie diese Woche einplanen? Ich bringe dir die Aufzeichnungen."],
+["Ich möchte mit dir darüber sprechen, wie du Kunden begrüßt, weil ich Rückmeldungen bekommen habe.","Hier zwei konkrete Beispiele, die ich beobachtet habe. Wie siehst du sie?","Wir setzen ein einfaches Ziel: jeden Kunden innerhalb von zehn Sekunden begrüßen. Am Freitag schauen wir, wie es läuft."],
+["Ich habe euch zusammengerufen, um die Arbeitszeiten während des Schlussverkaufs vorzustellen, und erkläre euch die Gründe.","Wer hat besondere Einschränkungen? Sagt es mir heute, damit ich sie berücksichtigen kann.","Ich kann nicht alle Wünsche erfüllen, aber das kann ich anpassen."],
+["Ich sehe, dass du zögerst, Kunden anzusprechen. Was hält dich zurück?","Lass es uns zusammen ausprobieren: Ich spiele den Kunden, und du sprichst mich mit einem einfachen Satz an.","Dein Ziel für heute: drei Kunden ansprechen. Um 16 Uhr ziehen wir Bilanz."],
+["Ich verstehe, dass Sie eine Erstattung möchten, und danke Ihnen für Ihre Treue.","Die Erstattungsfrist ist abgelaufen, daher kann ich nicht erstatten, aber ich kann Ihnen eine Gutschrift anbieten.","Möchten Sie lieber die Gutschrift oder einen Umtausch gegen einen anderen Artikel?"],
+["Was ist Ihnen bei diesem Produkt am wichtigsten: der Preis, die Haltbarkeit oder die Größe?","Wenn ich Sie richtig verstehe, möchten Sie etwas Einfaches und Robustes. Ich zeige Ihnen zwei Modelle.","Dieses hier erfüllt Ihre Kriterien. Soll ich es Ihnen als Geschenk verpacken?"],
+["Ich verstehe, dass das ärgerlich ist, und entschuldige mich für die Wartezeit.","Ich öffne sofort eine Kasse. Kommen Sie hier entlang, ich kümmere mich um Sie.","Danke für Ihre Geduld. Einen schönen Tag noch."],
+["Guten Tag, kann ich Ihnen helfen? Ich wollte nur sicherstellen, dass alles in Ordnung ist.","Wenn Sie möchten, begleite ich Sie mit den Artikeln in Ihrer Hand zur Kasse.","Danke. Ich informiere nur meine Vorgesetzte, wie es das Verfahren vorsieht."],
+["Ich möchte mit dir über die Kassendifferenz dieser Woche sprechen, ohne dir etwas vorzuwerfen.","Kannst du mir beschreiben, wie dein Kassenabschluss abläuft?","Wir gehen das Verfahren heute Abend zusammen durch, und bis Freitag zähle ich die Kasse mit dir."],
+["Guten Morgen zusammen, drei Prioritäten heute: die Aktion, der Bestand in Gang A und die Kasse.","Wer hat blockierende Punkte? Ich nehme mir zwei Minuten dafür.","Um 12 Uhr treffen wir uns kurz wieder. Einen guten Tag euch!"],
+["Ich melde mich wegen eines Versorgungsengpasses, der sich seit drei Wochen wiederholt.","Das kostet uns bei diesem Produkt etwa [x] Verkäufe pro Woche.","Können Sie mir sagen, wer die Situation lösen kann und in welcher Frist?"],
+["Ich möchte mit dir die Ergebnisse des Quartals durchgehen und verstehen, wie du die Situation erlebst.","Was erklärt aus deiner Sicht den Abstand zum Ziel?","Wir machen es so: zwei Termine mit Interessenten pro Woche und jeden Freitag ein kurzes Gespräch."],
+["Mir ist aufgefallen, dass du lieber mit Bestandskunden arbeitest. Was hält dich bei der Akquise zurück?","Wie wäre es, wenn wir einen Akquiseanruf zusammen im Rollenspiel üben?","Dein Ziel für die Woche: fünf Anrufe, und am Freitag besprechen wir sie gemeinsam."],
+["Ich stelle euch die Ziele für das nächste Jahr vor und erkläre den Kontext.","Ich verstehe, dass das ehrgeizig wirkt. Was erscheint euch am schwierigsten?","Wir passen den Aktionsplan gemeinsam an, und ich bringe eure Anmerkungen nächste Woche in den Ausschuss."],
+["Ich muss Ihnen mitteilen, dass die Bank diesen Kredit vorerst nicht gewähren kann, und möchte Ihnen erklären, warum.","Ich verstehe Ihre Enttäuschung. Schauen wir, was wir anders machen können.","Ich schlage vor, den Antrag in drei Monaten mit mehr Eigenkapital erneut zu prüfen. Passt Ihnen das?"],
+["Ich verstehe Ihre Sorge wegen dieses Rückgangs und spreche lieber gleich mit Ihnen darüber.","Erinnern wir uns an Ihren Anlagehorizont: Sie haben für zehn Jahre investiert, und solche Schwankungen sind normal.","Ich schlage vor, die aktuelle Strategie beizubehalten und sie jedes Quartal zu überprüfen."],
+["Ich verstehe, dass Sie diese Gebühren überraschen. Ich prüfe Ihre Unterlagen.","Daher kommen diese Gebühren, und so können Sie sie künftig vermeiden.","Ich erstatte die letzte Belastung aus Kulanz und bestätige Ihnen das schriftlich."],
+["Ich benötige einige Angaben, um Ihre Unterlagen zu aktualisieren, wie es das Gesetz allen Banken vorschreibt.","Ich verstehe, dass das aufdringlich wirken kann. Diese Daten bleiben vertraulich.","Können Sie mir diese drei Unterlagen bis Freitag bringen? Ich schicke Ihnen die Liste schriftlich."],
+["Ich möchte mit dir über eine Transaktion sprechen, die mir auf dem Konto dieses Kunden ungewöhnlich erscheint.","Das habe ich bemerkt: den Betrag, die Häufigkeit und den Empfänger.","Laut Verfahren melde ich sie heute an die Compliance. Bist du einverstanden?"],
+["Ich stelle die Vorlage für Unternehmen X vor: eine Anfrage über [x] Euro zur Finanzierung einer Expansion.","Die identifizierten Risiken sind die Verschuldung und die Abhängigkeit von einem Kunden, aber das sind die angebotenen Sicherheiten.","Ich empfehle die Genehmigung mit zwei aufschiebenden Bedingungen. Ich beantworte gern Ihre Fragen."],
+["Ich übergebe dir meinen Kundenbestand vor meinem Weggang. Diese fünf Kunden haben Vorrang.","Bei diesem Kunden aufpassen: Er wird lieber morgens kontaktiert und hat eine offene Anfrage.","Alle Details stehen in der Akte. Willst du zehn Minuten die heiklen Fälle mit mir durchgehen?"],
+["Ich möchte dich direkt über eine Änderung in der Akademie informieren, die deine Trainingsstunden betrifft.","Ich weiß, dass dir das Trainieren viel bedeutet. Wie nimmst du diese Nachricht auf?","Ich schlage dir vor, die Begleitung neuer Trainer zu übernehmen, und wir sprechen in zwei Wochen wieder."],
+["Ich möchte mir nach deiner Session einen Moment mit dir nehmen. Wie hast du sie erlebt?","Was lief aus deiner Sicht gut, und was würdest du anders machen?","Nächste Woche hospitieren wir zusammen bei einer Kollegin, und du sagst mir, was du mitnimmst."],
+["Ich habe euch zusammengeholt, um eure beiden Ansätze für diesen Lernpfad zu klären.","Stellt beide in zwei Minuten vor, welches Lernergebnis ihr für die Lernenden anstrebt.","Wir testen beide Versionen mit einer kleinen Gruppe und entscheiden nach den Ergebnissen."],
+["Ich sehe, dass es für Sie nicht einfach ist, hier zu sein. Was würde Ihnen helfen?","Was möchten Sie aus diesem Tag für Ihre Arbeit mitnehmen?","Ich schlage vor, von einem konkreten Fall aus Ihrem Alltag auszugehen, damit diese Session nützlich wird."],
+["Um Ihren Bedarf genau zu verstehen: Welche Situation hat Sie zu dieser Schulungsanfrage veranlasst?","Was soll sich in drei Monaten konkret in Ihren Teams verändert haben?","Wenn ich zusammenfasse, ist das Ziel [x]. Ich schicke Ihnen innerhalb von zwei Tagen ein Angebot."],
+["Danke, dass Sie mir Ihre Meinung sagen, das ist sehr hilfreich.","Was war Ihnen zu theoretisch, und woran hätten Sie gern gearbeitet?","Ich schlage Ihnen nächsten Monat einen zweistündigen Praxisworkshop vor und melde Sie bevorzugt an."],
+["Ich möchte Sie an die Unterlagen erinnern, die vor dem Audit fehlen: Anwesenheitslisten und Bewertungen.","Was macht diese Verwaltungsaufgabe für Sie kompliziert?","Können Sie mir die fehlenden Unterlagen bis Donnerstag schicken? Ich biete Ihnen eine einfachere Vorlage an."],
+["Ich bestätige den Eingang Ihres Antrags auf Löschung Ihrer personenbezogenen Daten.","Das löschen wir, und das müssen wir gesetzlich aufbewahren, und zwar so lange.","Sie erhalten innerhalb eines Monats eine schriftliche Bestätigung."],
+["Ich stelle die Ergebnisse des Programms vor: [x] % Abschlussquote und [y] % weniger Fehler.","Der Return on Investment beruht auf drei Punkten: Produktivität, Mitarbeiterbindung und Compliance.","Ich beantrage ein Budget von [x], um das Programm auf zwei weitere Abteilungen auszuweiten."],
+["Ich weiß, dass Sie viel zu tun haben, und ich nehme Ihre Zeit nicht ohne Grund in Anspruch.","Mit dieser Schulung sparen Ihre Teams danach etwa [x] Stunden pro Woche.","Ich schlage zwei halbe Tage außerhalb der Spitzenzeit vor. Welche Termine passen Ihnen?"],
+["Danke für diese paar Minuten. Ich möchte nicht, dass Sie alles umstellen, sondern verstehen, wie Sie heute arbeiten.","Was kostet Ihre Teams mit dem aktuellen Tool noch zu viel Zeit?","Ich schlage einen 45-minütigen Workshop mit Ihren Teams vor, um an einem echten Fall zu vergleichen. Dienstag oder Donnerstag?"],
+["Ich verstehe, dass der Preis zählt, und möchte, dass wir beide Angebote bei gleichen Leistungen vergleichen.","Wenn morgen ein Schaden eintritt, was wäre Ihnen dann am wichtigsten?","Ich kann die Selbstbeteiligung anpassen, um den Beitrag zu senken, und die wesentlichen Leistungen behalten. Schauen wir es uns gemeinsam an?"],
+["Frau Doktor, ich weiß, dass Ihre Zeit knapp ist, ich fasse mich kurz.","Wie lange warten Sie heute auf einen dringenden Befund, und was bedeutet das für Ihre Patienten?","Ich schlage einen einmonatigen Test vor, ohne zusätzlichen Aufwand für Ihr Praxisteam. Ziehen wir am Ende gemeinsam Bilanz?"],
+["Gute Wahl, das ist das Modell, das ich für Ihre beschriebene Nutzung empfehle.","Möchten Sie es selbst installieren, oder soll es direkt einsatzbereit sein?","Hier ist das Infoblatt zur Leistung: Wenn Sie es sich anders überlegen, können Sie sie innerhalb von 30 Tagen hinzubuchen."],
+["Ich sage es Ihnen lieber persönlich: Unsere Preise steigen zum 1. Januar um 6 %.","Die Erhöhung spiegelt unsere Rohstoffkosten wider, ich zeige Ihnen gern die Aufschlüsselung. Was bereitet Ihnen die größten Schwierigkeiten?","Ich kann die Erhöhung auf zwei Quartale verteilen, wenn Sie sich auf die Jahresmengen festlegen. Ist das eine Gesprächsgrundlage?"],
+["Ich bin nicht hier, um Ihnen um jeden Preis Zeitarbeit zu verkaufen, sondern um Ihren Personalbedarf zu verstehen.","Wie lange haben Sie bei Ihrer letzten Auftragsspitze gebraucht, um Verstärkung zu finden?","Ich schlage eine erste Stelle zum Test vor, mit einer Zufriedenheitsabfrage nach einer Woche."],
+["Herzlich willkommen, und danke für Ihre Geduld nach dieser langen Reise.","Sind Sie beruflich hier oder um sich ein paar Tage zu erholen?","Ich habe heute Abend ein Zimmer mit Terrasse für einen kleinen Aufpreis frei. Sonst hier Ihr Schlüssel, einen schönen Abend."],
+["Danke, dass Sie offen mit mir sprechen, genau das bringt uns weiter.","Was bremst Ihre Teams aus Ihrer Sicht im Alltag?","Ich schlage einen 60-Tage-Plan vor, mit zwei Workshops und einem monatlichen Blick auf Ihre Kennzahlen. Stimmen wir ihn am Freitag gemeinsam ab?"],
+["Guten Tag, danke für Ihre Nachricht und die Screenshots, sie helfen mir, das Problem nachzustellen.","Zur Bestätigung der Diagnose: Tritt der Fehler bei allen Nutzern auf oder nur bei bestimmten Profilen?","Das Problem ist identifiziert und eine Korrektur ist in Arbeit. Bis dahin hier eine Übergangslösung, und am Donnerstag melde ich mich mit einem Zwischenstand."],
+["Ich verstehe Ihre Überraschung über diese Nachricht und erkläre Ihnen alles.","Damit ich Ihnen den passenden Tarif vorschlagen kann: Wie nutzen Sie Ihr Abonnement im Alltag?","Ich schlage Ihnen diesen Tarif vor, der Ihre Dienste zu einem ähnlichen Preis wie bisher erhält. Ich schicke Ihnen die Zusammenfassung per E-Mail."],
+["Ich nehme Ihren Wunsch auf. Bevor ich ihn bearbeite, darf ich fragen, was Sie zu diesem Schritt bewegt?","Wenn ich Sie richtig verstehe, ist es vor allem der Preis der kommenden Monate?","Ich kann Ihnen dieses Angebot für 12 Monate machen. Wenn Sie trotzdem kündigen möchten, leite ich das sofort ein."],
+["Ich sehe, dass das Ihr dritter Anruf ist, und verstehe, dass Sie genug haben.","Ich übernehme Ihren Fall: Lassen Sie mich prüfen, woran es bisher gehakt hat.","Das mache ich jetzt, und ich rufe Sie morgen vor 12 Uhr persönlich zurück. Ist es dann nicht gelöst, gebe ich es an meine Vorgesetzte weiter."],
+["Guten Tag, ich rufe Sie an, weil ich beim Entdecken der neuen Kollektion an Sie gedacht habe.","Beim letzten Mal suchten Sie ein Stück für den Abend. Ist das noch aktuell?","Ich kann Ihnen zwei Modelle in Ihrer Größe zurücklegen. Hätten Sie am Samstagvormittag Zeit?"],
+["Das tut mir aufrichtig leid, das ist nicht das Erlebnis, das wir Ihnen bieten möchten.","Können Sie mir zeigen, was passiert ist, und seit wann Sie es bemerkt haben?","Ich gebe das Stück in unser Atelier und rufe Sie persönlich an, sobald es zurück ist, innerhalb von zehn Tagen."],
+["Ich verstehe Ihren Ärger und tue alles, um schnell eine Lösung zu finden.","Wann müssen Sie wo ankommen?","Ich reserviere Ihnen einen Platz für die Abfahrt um 14:10 Uhr, und hier ist ein Essensgutschein für die Wartezeit."],
+["Ich muss mit dir über die heute Morgen ausgelassene Prüfung sprechen, weil es um Sicherheit geht.","Was hat dich dazu gebracht, sie auszulassen: der Fahrplan, die Arbeitslast, etwas anderes?","Die Regel bleibt. Wenn der Fahrplan nicht haltbar ist, sagst du es mir, und ich gebe es weiter. Einverstanden?"],
+["Danke, dass Sie gekommen sind. Wir sprechen über Ihre konkreten Erfahrungen, und am Ende haben Sie Zeit für Ihre Fragen.","Schildern Sie mir eine konkrete Situation, in der ein Kunde unzufrieden war: Was haben Sie persönlich getan?","Danke. Wir melden uns innerhalb einer Woche nach den anderen Gesprächen bei Ihnen."],
+["Dieses Gespräch dient dazu, Ihnen die Ihnen vorgeworfenen Fakten darzulegen und Ihre Erklärungen anzuhören.","Das wurde am 12. festgestellt. Wie sehen Sie das?","Ich habe Ihre Erklärungen notiert. Heute wird keine Entscheidung getroffen: Sie erhalten fristgerecht eine schriftliche Antwort."],
+["Ich möchte offen zu dir sein: Ich kann dir dieses Jahr keine Gehaltserhöhung geben.","Dein Beitrag zählt. Was ist dir in den nächsten zwei Jahren am wichtigsten?","Ich schlage dir einen Plan mit zwei Zielen und einer Überprüfung im Juni vor. Ich setze mich für dich ein."],
+["Ich habe eine schwierige Nachricht für dich und sage sie dir lieber direkt.","Ich weiß, dass du mit diesem Einsatz gerechnet hast. Was beunruhigt dich am meisten?","Dein Einsatz endet am Freitag. Ich habe ab Montag zwei Stellen für dich, schauen wir sie uns zusammen an?"],
+["Ich brauche zwei Minuten und sage Ihnen konkret, was sich für Sie ändert.","In einem Satz: Wir helfen Unternehmen wie Ihrem, ihre [x]-Kosten um [y] % zu senken. Was ist heute Ihre größte Herausforderung?","Ich schlage Ihnen am Donnerstag 30 Minuten vor, um Ihnen einen ähnlichen Fall zu zeigen."],
+["Ich weiß, dass die Ankündigung dieses Tools Fragen aufwirft, und ich möchte offen mit dir darüber sprechen.","Was beunruhigt dich ganz konkret am meisten?","Das Tool übernimmt wiederkehrende Aufgaben, deine Expertise bleibt zentral. Ich schlage dir vor, Teil der Pilotgruppe zu sein."]
+];
+
+
+var SECT_EN = { "Services": "Services", "Santé": "Healthcare", "Industrie": "Manufacturing", "Retail": "Retail", "Banque & assurance": "Banking & insurance", "Formation": "Learning & training",
+  "Tech & SaaS": "Tech & SaaS", "Centres de contact": "Contact centers", "Luxe & beauté": "Luxury & beauty", "Hôtellerie & loisirs": "Hospitality & leisure", "Transport & mobilité": "Transport & mobility",
+  "Industrie & transport": "Manufacturing & transport", "Commerce & hôtellerie": "Retail & hospitality", "Tech & centres de contact": "Tech & contact centers" };
+var TYPE_EN = { "Management": "Management", "RH & recrutement": "HR & recruiting", "Relation client": "Customer relations", "Vente & négociation": "Sales & negotiation",
+  "Conformité & sécurité": "Compliance & safety", "Communication interne": "Internal communication", "Onboarding & expertise produit": "Onboarding & product expertise",
+  "Management & RH": "Management & HR", "Relation client & vente": "Customers & sales", "Communication & expertise": "Communication & expertise" };
 var SKILLS_EN = {
   "Management": "Management posture, active listening, clear framework",
+  "RH & recrutement": "Neutrality, respect for procedure, precise questioning",
   "Relation client": "Listening, empathy, reformulation, handling disagreement",
+  "Vente & négociation": "Discovery, objection handling, closing",
   "Conformité & sécurité": "Following procedures, factual tone, caring firmness",
-  "Communication interne": "Message clarity, argumentation, adapting to the other person"
+  "Communication interne": "Message clarity, argumentation, adapting to the other person",
+  "Onboarding & expertise produit": "Command of the offer, clarity, precise answers"
 };
+var LEVEL_EN = ["", "Accessible", "Demanding", "Difficult"];
 var STEM_EN = "Generate a spoken role-play scenario where ";
+var STEM_EN_W = "Generate a written role-play scenario where ";
+var SECT_DE = { "Services": "Dienstleistung", "Santé": "Gesundheit", "Industrie": "Industrie", "Retail": "Einzelhandel", "Banque & assurance": "Banken & Versicherung", "Formation": "Weiterbildung",
+  "Tech & SaaS": "Tech & SaaS", "Centres de contact": "Contact Center", "Luxe & beauté": "Luxus & Beauty", "Hôtellerie & loisirs": "Hotellerie & Freizeit", "Transport & mobilité": "Transport & Mobilität",
+  "Industrie & transport": "Industrie & Transport", "Commerce & hôtellerie": "Handel & Hotellerie", "Tech & centres de contact": "Tech & Contact Center" };
+var TYPE_DE = { "Management": "Führung", "RH & recrutement": "HR & Recruiting", "Relation client": "Kundenbeziehung", "Vente & négociation": "Vertrieb & Verhandlung",
+  "Conformité & sécurité": "Compliance & Sicherheit", "Communication interne": "Interne Kommunikation", "Onboarding & expertise produit": "Onboarding & Produktwissen",
+  "Management & RH": "Führung & HR", "Relation client & vente": "Kunden & Vertrieb", "Communication & expertise": "Kommunikation & Fachwissen" };
+var SKILLS_DE = {
+  "Management": "Führungshaltung, aktives Zuhören, klarer Rahmen",
+  "RH & recrutement": "Neutralität, Einhaltung des Verfahrens, präzises Nachfragen",
+  "Relation client": "Zuhören, Empathie, Umformulieren, Umgang mit Widerspruch",
+  "Vente & négociation": "Bedarfsanalyse, Einwandbehandlung, Abschluss",
+  "Conformité & sécurité": "Einhaltung von Verfahren, sachlicher Ton, wohlwollende Bestimmtheit",
+  "Communication interne": "Klare Botschaft, Argumentation, Anpassung an das Gegenüber",
+  "Onboarding & expertise produit": "Beherrschung des Angebots, Klarheit, präzise Antworten"
+};
+var LEVEL_DE = ["", "Einfach", "Anspruchsvoll", "Schwierig"];
+var STEM_DE = "Erstelle ein mündliches Rollenspiel. Lernende Person: ";
+var STEM_DE_W = "Erstelle ein schriftliches Rollenspiel. Lernende Person: ";
 var UI = {
   fr: {
     internal: "Usage interne 360Learning uniquement. Ne pas partager ni transmettre aux clients.",
     crumb: "Cas d'usage", search: "Rechercher", comp: "Entreprise cliente",
     compTip: "Le nom saisi ici est inséré dans chaque prompt pour que l'avatar parle du contexte de votre client.",
     h1: "Former vos collaborateurs par la pratique",
-    hero: "60 cas d'usage à jouer face à un avatar. Saisissez l'entreprise cliente en haut, ouvrez un cas, lisez les phrases clefs, puis copiez le prompt dans RolePlay.",
-    all: "Tous les secteurs", seeAll: "Tout voir", cases: "cas", sector: "Secteur", useCases: "Cas d'usage",
+    hero: "82 cas d'usage à jouer face à un avatar, à l'oral ou à l'écrit. Saisissez l'entreprise cliente en haut, ouvrez un cas, lisez les phrases clefs, puis copiez le prompt dans AI Roleplay.",
+    all: "Tous", allBack: "Tous les secteurs", seeAll: "Tout voir", cases: "cas", sector: "Secteur", useCases: "Cas d'usage",
     empty: "Aucun cas ne correspond. Changez de secteur ou effacez la recherche.",
-    drawer: "Fiche du cas", close: "Fermer", avatar: "Avatar", role: "Rôle de l'apprenant", goal: "Objectif", skill: "Compétence",
-    promptH: "Prompt à donner à RolePlay",
-    promptP: "Les champs de RolePlay se remplissent à partir de cette phrase. Le nom de l'entreprise cliente (champ en haut de page) y est inséré pour contextualiser la scène.",
+    drawer: "Fiche du cas", oral: "Oral", written: "Écrit", close: "Fermer", avatar: "Avatar", role: "Rôle de l'apprenant", goal: "Objectif", skill: "Compétence",
+    promptH: "Prompt à donner à AI Roleplay",
+    promptP: "Les champs d'AI Roleplay se remplissent à partir de cette phrase. Le nom de l'entreprise cliente (champ en haut de page) y est inséré pour contextualiser la scène.",
     phrasesH: "Suggestion de phrases clefs", phrasesP: "Dans l'ordre de la scène. Vous jouez l'apprenant, l'avatar répond.",
     labels: ["Ouvrir", "Explorer", "Conclure"],
-    copy: "Copier le prompt", copied: "Copié", failed: "Texte sélectionné, faites Ctrl/Cmd+C", ph: "[entreprise]", title: "Cas d'usage RolePlay"
+    copy: "Copier le prompt", copied: "Copié", failed: "Texte sélectionné, faites Ctrl/Cmd+C", ph: "[entreprise]", title: "Cas d'usage AI Roleplay"
   },
   en: {
     internal: "360Learning internal use only. Do not share or forward to customers.",
     crumb: "Use cases", search: "Search", comp: "Client company",
     compTip: "The name entered here is inserted into every prompt so the avatar speaks to your client's context.",
     h1: "Train your employees through practice",
-    hero: "60 use cases to play against an avatar. Enter the client company above, open a case, read the key phrases, then copy the prompt into RolePlay.",
-    all: "All sectors", seeAll: "See all", cases: "cases", sector: "Sector", useCases: "Use cases",
+    hero: "82 use cases to play against an avatar, spoken or written. Enter the client company above, open a case, read the key phrases, then copy the prompt into AI Roleplay.",
+    all: "All", allBack: "All sectors", seeAll: "See all", cases: "cases", sector: "Sector", useCases: "Use cases",
     empty: "No case matches. Change the sector or clear the search.",
-    drawer: "Case details", close: "Close", avatar: "Avatar", role: "Learner role", goal: "Objective", skill: "Skill",
-    promptH: "Prompt to give to RolePlay",
-    promptP: "RolePlay's fields are filled in from this sentence. The client company name (field at the top of the page) is inserted to give the scene its context.",
+    drawer: "Case details", oral: "Spoken", written: "Written", close: "Close", avatar: "Avatar", role: "Learner role", goal: "Objective", skill: "Skill",
+    promptH: "Prompt to give to AI Roleplay",
+    promptP: "AI Roleplay's fields are filled in from this sentence. The client company name (field at the top of the page) is inserted to give the scene its context.",
     phrasesH: "Suggested key phrases", phrasesP: "In scene order. You play the learner, the avatar answers.",
     labels: ["Open", "Explore", "Close"],
-    copy: "Copy prompt", copied: "Copied", failed: "Text selected, press Ctrl/Cmd+C", ph: "[company]", title: "RolePlay use cases"
+    copy: "Copy prompt", copied: "Copied", failed: "Text selected, press Ctrl/Cmd+C", ph: "[company]", title: "AI Roleplay use cases"
+  },
+  de: {
+    internal: "Nur für den internen Gebrauch bei 360Learning. Nicht an Kunden weitergeben.",
+    crumb: "Anwendungsfälle", search: "Suchen", comp: "Kundenunternehmen",
+    compTip: "Der hier eingegebene Name wird in jeden Prompt eingefügt, damit der Avatar im Kontext Ihres Kunden spricht.",
+    h1: "Mitarbeitende durch Praxis schulen",
+    hero: "82 Anwendungsfälle zum Üben mit einem Avatar, mündlich oder schriftlich. Kundenunternehmen oben eingeben, einen Fall öffnen, die Schlüsselsätze lesen und den Prompt in AI Roleplay kopieren.",
+    all: "Alle", allBack: "Alle Branchen", seeAll: "Alle anzeigen", cases: "Fälle", sector: "Branche", useCases: "Anwendungsfälle",
+    empty: "Kein Fall entspricht der Auswahl. Branche wechseln oder Suche löschen.",
+    drawer: "Falldetails", oral: "Mündlich", written: "Schriftlich", close: "Schließen", avatar: "Avatar", role: "Rolle der lernenden Person", goal: "Ziel", skill: "Kompetenz",
+    promptH: "Prompt für AI Roleplay",
+    promptP: "Die Felder von AI Roleplay werden aus diesem Satz befüllt. Der Name des Kundenunternehmens (Feld oben auf der Seite) wird eingefügt, um die Szene in Kontext zu setzen.",
+    phrasesH: "Vorgeschlagene Schlüsselsätze", phrasesP: "In der Reihenfolge der Szene. Sie spielen die lernende Person, der Avatar antwortet.",
+    labels: ["Eröffnen", "Erkunden", "Abschließen"],
+    copy: "Prompt kopieren", copied: "Kopiert", failed: "Text markiert, Strg/Cmd+C drücken", ph: "[Unternehmen]", title: "AI Roleplay Anwendungsfälle"
   }
 };
 var lang = "fr";
-try { var sl = localStorage.getItem("rp-cas-usage-lang"); if (sl === "en" || sl === "fr") lang = sl; } catch (err) {}
+try { var sl = localStorage.getItem("rp-cas-usage-lang"); if (sl === "en" || sl === "fr" || sl === "de") lang = sl; } catch (err) {}
 function U(k) { return UI[lang][k]; }
-function dInd(x) { return lang === "en" ? SECT_EN[x] : x; }
-function dType(x) { return lang === "en" ? TYPE_EN[x] : x; }
+function dInd(x) { return lang === "en" ? SECT_EN[x] : lang === "de" ? SECT_DE[x] : x; }
+function dType(x) { return lang === "en" ? TYPE_EN[x] : lang === "de" ? TYPE_DE[x] : x; }
 function capFirst(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+function famOf(type) { for (var k = 0; k < FAMILIES.length; k++) if (FAMILIES[k].t.indexOf(type) !== -1) return FAMILIES[k].n; return ""; }
 var EXAMPLES = [];
 function buildExamples() {
   EXAMPLES = ROWS.map(function (r, i) {
-    var en = lang === "en", x = ROWS_EN[i];
-    var learner = en ? x[1] : r[3], situ = en ? x[2] : r[4];
+    var w = WRITTEN.indexOf(i + 1) !== -1;
+    /* t = [titre, apprenant, situation, scénario, avatar] dans la langue affichée */
+    var t = lang === "en" ? ROWS_EN[i] : lang === "de" ? ROWS_DE[i] : [r[2], r[3], r[4], r[5], r[6]];
+    var learner = t[1], situ = t[2], prompt;
+    if (lang === "en") prompt = (w ? STEM_EN_W : STEM_EN) + learner + " at {entreprise} must " + situ + ".";
+    else if (lang === "de") prompt = (w ? STEM_DE_W : STEM_DE) + learner + " bei {entreprise}. Aufgabe: " + situ + ".";
+    else prompt = (w ? STEM_W : STEM) + learner + " de {entreprise} doit " + situ + ".";
     return {
-      id: i + 1, ind: SECT[r[0]], type: r[1], dur: "3 min",
-      title: en ? x[0] : r[2],
-      role: capFirst(learner.replace(/^(un|une|a|an) /, "")),
+      id: i + 1, ind: UNIV[r[0]], sub: SECT[r[0]], type: r[1], fam: famOf(r[1]),
+      lvl: (lang === "en" ? LEVEL_EN : lang === "de" ? LEVEL_DE : LEVEL)[LEVELS[i]], lvlN: LEVELS[i], written: w,
+      title: t[0],
+      role: capFirst(learner.replace(/^(un|une|a|an|ein|eine) /, "")),
       goal: capFirst(situ),
-      scenario: en ? x[3] : r[5], avatar: en ? x[4] : r[6],
-      skill: en ? SKILLS_EN[r[1]] : SKILLS[r[1]],
-      prompt: en ? STEM_EN + learner + " at {entreprise} must " + situ + "." : STEM + learner + " de {entreprise} doit " + situ + ".",
-      phrases: en ? PHRASES_EN[i] : PHRASES[i]
+      scenario: t[3], avatar: t[4],
+      skill: (lang === "en" ? SKILLS_EN : lang === "de" ? SKILLS_DE : SKILLS)[r[1]],
+      prompt: prompt,
+      phrases: lang === "en" ? PHRASES_EN[i] : lang === "de" ? PHRASES_DE[i] : PHRASES[i]
     };
   });
 }
 buildExamples();
 
 
-var INDUSTRIES = ["Services", "Santé", "Industrie", "Retail", "Banque & finance", "Formation"];
-var ABBR = { "Services": "Sv", "Santé": "Sa", "Industrie": "In", "Retail": "Re", "Banque & finance": "Bf", "Formation": "Fo" };
-var TYPES = ["Management", "Relation client", "Conformité & sécurité", "Communication interne"];
+var INDUSTRIES = ["Services", "Tech & centres de contact", "Santé", "Industrie & transport", "Commerce & hôtellerie", "Banque & assurance", "Formation"];
+var TYPES = FAMILIES.map(function (f) { return f.n; });
 var state = { ind: "Tous", type: "Tous", q: "", entreprise: "", open: 0 };
 var lastFocus = null;
 
 function $(id) { return document.getElementById(id); }
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 function byId(id) { return EXAMPLES.filter(function (e) { return e.id === id; })[0]; }
-function tIdx(e) { return TYPES.indexOf(e.type); }
+function tIdx(e) { return TYPES.indexOf(e.fam); }
 
 function plainPrompt(tpl) { return tpl.replace(/\{entreprise\}/g, state.entreprise.trim() || U("ph")); }
 function htmlPrompt(tpl) {
@@ -801,10 +1139,10 @@ function htmlPrompt(tpl) {
 
 function matches(e) {
   if (state.ind !== "Tous" && e.ind !== state.ind) return false;
-  if (state.type !== "Tous" && e.type !== state.type) return false;
+  if (state.type !== "Tous" && e.fam !== state.type) return false;
   var q = state.q.trim().toLowerCase();
   if (q) {
-    var hay = (e.title + " " + e.scenario + " " + e.avatar + " " + dInd(e.ind) + " " + dType(e.type) + " " + e.phrases.join(" ")).toLowerCase();
+    var hay = (e.title + " " + e.scenario + " " + e.avatar + " " + dInd(e.ind) + " " + dInd(e.sub) + " " + dType(e.type) + " " + e.lvl + " " + (e.written ? U("written") : U("oral")) + " " + e.phrases.join(" ")).toLowerCase();
     if (hay.indexOf(q) === -1) return false;
   }
   return true;
@@ -818,7 +1156,7 @@ function renderFilters() {
   }).join("");
   $("pills").innerHTML = pills;
   $("tiles").innerHTML = TYPES.map(function (n, i) {
-    var c = EXAMPLES.filter(function (e) { return e.type === n; }).length;
+    var c = EXAMPLES.filter(function (e) { return e.fam === n; }).length;
     return '<button type="button" class="tile" data-piece data-type="' + esc(n) + '" aria-pressed="' + (state.type === n) + '"><span class="lab"><b>' + esc(dType(n)) + "</b><small>" + c + " " + U("cases") + "</small></span></button>";
   }).join("");
 }
@@ -828,7 +1166,7 @@ function cardHtml(e) {
   var n = tIdx(e);
   return '<button type="button" class="card t' + n + '" data-id="' + e.id + '">' +
     '<span class="card-top" style="background-size:' + (200 + (e.id * 37) % 140) + '%;background-position:' + ((e.id * 53) % 101) + '% ' + ((e.id * 29) % 101) + '%"></span>' +
-    '<span class="card-body"><h3>' + esc(e.title) + '</h3><span class="chips"><span class="chip">' + esc(e.dur) + '</span><span class="chip tc">' + esc(dType(e.type)) + "</span></span></span>" +
+    '<span class="card-body"><h3>' + esc(e.title) + '</h3><span class="chips"><span class="chip lv lv' + e.lvlN + '">' + esc(e.lvl) + '</span>' + (e.written ? '<span class="chip">' + esc(U("written")) + '</span>' : "") + '<span class="chip tc">' + esc(dType(e.type)) + "</span></span></span>" +
     '<span class="card-foot"><span class="av">' + esc(short.charAt(0).toUpperCase()) + '</span><span class="av-name">' + esc(short) + '</span><span class="q">' + QUOTE + "3</span></span>" +
     "</button>";
 }
@@ -841,7 +1179,7 @@ function renderSections() {
     var items = list.filter(function (e) { return e.ind === ind; });
     if (!items.length) return "";
     return '<section><div class="sec-head"><h2>' + esc(dInd(ind)) + '</h2><span class="count">' + items.length + "</span>" +
-      '<button type="button" class="seeall" data-see="' + (wide ? esc(ind) : "Tous") + '">' + (wide ? U("seeAll") : U("all")) + "</button></div>" +
+      '<button type="button" class="seeall" data-see="' + (wide ? esc(ind) : "Tous") + '">' + (wide ? U("seeAll") : U("allBack")) + "</button></div>" +
       '<div class="' + (wide ? "row-scroll" : "row-grid") + '">' + items.map(cardHtml).join("") + "</div></section>";
   }).join("");
 }
@@ -877,7 +1215,7 @@ window.addEventListener("load", layoutMosaic);
 try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutMosaic); } catch (err) {}
 
 function drawerHtml(e) {
-  return '<div class="drawer-head t' + tIdx(e) + '"><span class="chips"><span class="chip">' + esc(dInd(e.ind)) + '</span><span class="chip">' + esc(e.dur) + '</span><span class="chip tc">' + esc(dType(e.type)) + "</span></span>" +
+  return '<div class="drawer-head t' + tIdx(e) + '"><span class="chips"><span class="chip">' + esc(dInd(e.sub)) + '</span><span class="chip lv lv' + e.lvlN + '">' + esc(e.lvl) + '</span><span class="chip">' + esc(e.written ? U("written") : U("oral")) + '</span><span class="chip tc">' + esc(dType(e.type)) + "</span></span>" +
     '<button type="button" class="close" id="close" aria-label="' + esc(U("close")) + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>' +
     '<div class="drawer-body"><h1>' + esc(e.title) + "</h1>" +
     '<p class="scenario">' + esc(e.scenario) + "</p>" +
